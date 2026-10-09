@@ -37,7 +37,8 @@ const UI = (function () {
     const host = document.getElementById("toastHost");
     const el = document.createElement("div");
     el.className = "toast " + (type || "");
-    el.innerHTML = message;
+    // Toast 内容来自业务/接口消息，只按纯文本展示，避免把消息当 HTML 执行。
+    el.textContent = String(message ?? "");
     host.appendChild(el);
     setTimeout(() => {
       el.style.opacity = "0";
