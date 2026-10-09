@@ -12,6 +12,19 @@
 
   window.PLATFORM_APPS = []; // 缓存注册表数据
 
+  function setMobileNavOpen(open) {
+    const sidebar = document.querySelector(".sidebar");
+    const backdrop = document.getElementById("mobileNavBackdrop");
+    const toggle = document.getElementById("mobileNavToggle");
+    if (sidebar) sidebar.classList.toggle("mobile-open", open);
+    if (backdrop) backdrop.classList.toggle("visible", open);
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.setAttribute("aria-label", open ? "关闭导航" : "打开导航");
+    }
+    document.body.classList.toggle("nav-open", open);
+  }
+
   // 获取图标的辅助函数 (简单复用现有的)
   function getAppIcon(name) {
     const iconMap = {
@@ -46,6 +59,7 @@
 
     el.querySelectorAll(".nav-item[data-key]").forEach((item) => {
         item.addEventListener("click", () => {
+          setMobileNavOpen(false);
           const app = isApp && items.find((candidate) => candidate.route_path === item.dataset.key);
           if (app && app.entry_url) window.open(app.entry_url, '_blank', 'noopener');
           else if (app && app.route_path !== 'problems') Router.go('app_center');
@@ -56,6 +70,16 @@
 
   // 初始化加载
   async function init() {
+    const mobileToggle = document.getElementById("mobileNavToggle");
+    const mobileBackdrop = document.getElementById("mobileNavBackdrop");
+    if (mobileToggle) mobileToggle.addEventListener("click", () => {
+      setMobileNavOpen(!document.querySelector(".sidebar")?.classList.contains("mobile-open"));
+    });
+    if (mobileBackdrop) mobileBackdrop.addEventListener("click", () => setMobileNavOpen(false));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    });
+
     renderNavGroup("navWorkspace", WORKSPACE_NAVS);
     renderNavGroup("navPlatform", PLATFORM_NAVS);
     
