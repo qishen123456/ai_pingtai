@@ -1,0 +1,76 @@
+/* 设计规范变量：Premium Enterprise AI Platform - 工业级严谨与智能的平衡 */
+:root {
+  /* 字体体系 */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'PingFang SC', sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+  /* 侧边栏 (极黑/碳灰色 - 严谨沉稳) */
+  --nav-bg: #111827; /* 纯正灰蓝黑 */
+  --nav-bg-dark: #030712;
+  --nav-border-right: rgba(255, 255, 255, 0.08);
+  --nav-active-bg: rgba(255, 255, 255, 0.08);
+  --nav-active-border: #60a5fa;
+  --nav-text: #9ca3af;
+  --nav-text-hover: #f3f4f6;
+  --nav-text-active: #ffffff;
+  --nav-section-title: #6b7280;
+
+  /* 内容区 Canvas 与面板 (中性浅灰，高纯净度) */
+  --canvas: #f9fafb;
+  --card-bg: #ffffff;
+  --card-header-bg: #f3f4f6;
+  --border: #e5e7eb;
+  --border-strong: #d1d5db;
+  --border-subtle: #f3f4f6;
+
+  /* 文字颜色层级 (高对比度、清晰) */
+  --text-1: #111827;
+  --text-2: #374151;
+  --text-3: #6b7280;
+  --text-muted: #9ca3af;
+
+  /* 品牌色 (克制的高级深海军蓝与科技蓝) */
+  --primary: #2563eb;
+  --primary-dark: #1d4ed8;
+  --primary-light: #3b82f6;
+  --primary-soft: #eff6ff;
+  --primary-border: #bfdbfe;
+
+  /* 语义色 - 不刺眼、偏灰度的专业色彩 */
+  --success: #059669;
+  --success-dark: #047857;
+  --success-soft: #ecfdf5;
+  --success-border: #a7f3d0;
+
+  --danger: #dc2626;
+  --danger-dark: #b91c1c;
+  --danger-soft: #fef2f2;
+  --danger-border: #fecaca;
+
+  --warning: #d97706;
+  --warning-dark: #b45309;
+  --warning-soft: #fffbeb;
+  --warning-border: #fde68a;
+
+  --info: #0284c7;
+  --info-soft: #f0f9ff;
+
+  --purple: #7c3aed;
+  --purple-soft: #f5f3ff;
+
+  /* 形状 */
+  --radius: 8px;
+  --radius-sm: 6px;
+  --radius-lg: 12px;
+
+  /* 极尽细腻的物理微阴影 (Premium Shadows) */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-hover: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+
+  /* 尺寸 */
+  --nav-w: 240px;
+  --topbar-h: 56px;
+}
