@@ -27,7 +27,12 @@ window.Views.app_center = (function () {
   function renderAppList(el) {
     const apps = state.apps.filter(a => {
       if (state.filterStatus !== 'all' && a.status !== state.filterStatus) return false;
-      if (state.searchKw && !(a.name.includes(state.searchKw) || a.description.includes(state.searchKw))) return false;
+      if (state.searchKw) {
+        const query = state.searchKw.toLocaleLowerCase();
+        const searchable = [a.name, a.owner, a.description, a.category, a.evidence_note]
+          .filter(Boolean).join(" ").toLocaleLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
       return true;
     });
 
