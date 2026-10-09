@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -34,6 +35,39 @@ _FIELD_COLUMNS = [
 ]
 
 
+class ImportRowPayload(BaseModel):
+    """单条导入数据；只允许修改当前问题库支持的字段。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    excel_row: int = Field(ge=1)
+    excluded: bool = False
+    values: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("values")
+    @classmethod
+    def validate_values_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        unknown = set(values) - set(_FIELD_COLUMNS)
+        if unknown:
+            raise ValueError("包含不支持的字段：" + ", ".join(sorted(unknown)))
+        return values
+
+
+class ConfirmImportPayload(BaseModel):
+    """确认导入请求，限定行数并防止同一 Excel 行重复提交。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rows: List[ImportRowPayload] = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_unique_excel_rows(self) -> "ConfirmImportPayload":
+        row_numbers = [row.excel_row for row in self.rows]
+        if len(row_numbers) != len(set(row_numbers)):
+            raise ValueError("Excel 行号不能重复")
+        return self
+
+
 def _get_batch_or_404(db: Session, batch_id: int) -> ImportBatch:
     batch = db.get(ImportBatch, batch_id)
     if batch is None:
@@ -53,12 +87,24 @@ async def upload_excel(file: UploadFile = File(...), db: Session = Depends(get_d
     if not filename.lower().endswith(".xlsx"):
         raise HTTPException(status_code=400, detail="仅支持 .xlsx 格式的 Excel 文件")
 
-    content = await file.read()
-    if len(content) > MAX_UPLOAD_MB * 1024 * 1024:
-        raise HTTPException(
-            status_code=400,
-            detail="文件超过 %dMB 上限（当前 %dMB）" % (MAX_UPLOAD_MB, round(len(content) / 1024 / 1024, 1)),
-        )
+    max_bytes = MAX_UPLOAD_MB * 1024 * 1024
+    buffer = bytearray()
+    try:
+        while True:
+            # 最多读取至上限 + 1 字节，以便发现超限文件而不将其完整载入内存。
+            chunk = await file.read(min(1024 * 1024, max_bytes - len(buffer) + 1))
+            if not chunk:
+                break
+            buffer.extend(chunk)
+            if len(buffer) > max_bytes:
+                size_mb = len(buffer) / (1024 * 1024)
+                raise HTTPException(
+                    status_code=400,
+                    detail="文件超过 %dMB 上限（已检测到约 %.1fMB）" % (MAX_UPLOAD_MB, size_mb),
+                )
+    finally:
+        await file.close()
+    content = bytes(buffer)
     if not content:
         raise HTTPException(status_code=400, detail="文件内容为空")
 
@@ -127,15 +173,23 @@ def refresh_preview(batch_id: int, payload: Dict[str, Any], db: Session = Depend
 
 
 @router.post("/{batch_id}/confirm")
-def confirm_import(batch_id: int, payload: Dict[str, Any], db: Session = Depends(get_db)):
-    """用户确认后模拟写入问题库：再次归一校验，错误行拒绝入库并给明细。"""
+def confirm_import(batch_id: int, payload: ConfirmImportPayload, db: Session = Depends(get_db)):
+    """用户确认后模拟写入问题库：服务端复核批次行集合与字段，再执行归一校验。"""
     batch = _get_batch_or_404(db, batch_id)
     if batch.status == BATCH_CONFIRMED:
         raise HTTPException(status_code=409, detail="该批次已提交，重复提交不会产生重复数据")
 
-    submitted: List[Dict[str, Any]] = payload.get("rows") or []
-    if not submitted:
-        raise HTTPException(status_code=400, detail="没有需要导入的数据行")
+    submitted: List[Dict[str, Any]] = [row.model_dump() for row in payload.rows]
+
+    # 行号必须与服务器保存的预览完全一致：允许编辑现有行字段，但不能额外伪造/遗漏整行。
+    preview_rows = (batch.preview_json or {}).get("rows", [])
+    expected_row_numbers = {int(row["excel_row"]) for row in preview_rows}
+    submitted_row_numbers = {row["excel_row"] for row in submitted}
+    if submitted_row_numbers != expected_row_numbers:
+        raise HTTPException(
+            status_code=422,
+            detail="提交的数据行与当前批次预览不一致，请重新预览后再提交",
+        )
 
     imported, failed, excluded = evaluate_submission(batch.sheet_name, submitted)
 
@@ -149,11 +203,12 @@ def confirm_import(batch_id: int, payload: Dict[str, Any], db: Session = Depends
             row_hash=row_hash,
             **{k: values.get(k) for k in _FIELD_COLUMNS},
         )
-        db.add(rec)
         try:
-            db.flush()
+            # 保存点把唯一约束冲突限制在当前记录，不能回滚同批次之前已成功写入的记录。
+            with db.begin_nested():
+                db.add(rec)
+                db.flush()
         except IntegrityError:
-            db.rollback()
             duplicates += 1
             continue
 
