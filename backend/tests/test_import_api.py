@@ -178,7 +178,14 @@ def test_confirm_import_success_failed_excluded_and_idempotent(client):
     assert {d["excel_row"] for d in result["failed_details"]} == {6, 7}
 
     # 重复提交 -> 409，不产生重复数据
-    r3 = client.post("/api/imports/%d/confirm" % batch_id, json={"rows": rows})
+    r3 = client.post(
+        "/api/imports/%d/confirm" % batch_id,
+        json={"rows": [{
+            "excel_row": row["excel_row"],
+            "excluded": row["excluded"],
+            "values": row["values"],
+        } for row in rows]},
+    )
     assert r3.status_code == 409
 
     # 台账可见 4 条
