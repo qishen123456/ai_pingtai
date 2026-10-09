@@ -46,7 +46,7 @@
           '<span class="sys-badge draft">' + (n.tag || '草稿') + '</span></div>';
       }
       
-      const tagHtml = n.status === "active" ? '<span class="sys-badge active">' + (n.entry_url || n.route_path === 'problems' ? '可用' : '待配置') + '</span>' : 
+      const tagHtml = n.status === "active" ? '<span class="sys-badge active">' + (n.entry_url || ['problems', 'projects', 'standardization'].includes(n.route_path) ? '可用' : '待配置') + '</span>' : 
                       n.status === "planned" ? '<span class="sys-badge planned">规划中</span>' :
                       n.status === "draft" ? '<span class="sys-badge draft">草稿</span>' : '';
                       
