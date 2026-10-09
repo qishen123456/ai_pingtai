@@ -25,7 +25,7 @@ window.Views.dashboard = {
     const appCards = apps.map((app, index) => {
       const phase = app.status === 'active' ? '可用入口' : app.status === 'planned' ? '建设准备' : '草稿待审核';
       const action = app.entry_url ? '打开系统' : app.route_path === 'problems' ? '进入试点' : '查看条件';
-      const destination = app.route_path === 'problems' ? 'problems' : 'app_center';
+      const destination = ['problems', 'projects', 'standardization'].includes(app.route_path) ? app.route_path : 'app_center';
       return '<article class="mission-card mission-' + (index % 4) + '" data-go="' + destination + '">' +
         '<div class="mission-topline"><span class="mission-index">0' + (index + 1) + '</span><span class="mission-state ' + UI.esc(app.status) + '"><i></i>' + phase + '</span></div>' +
         '<div class="mission-icon">' + UI.icon(app.icon) + '</div><h3>' + UI.esc(app.name) + '</h3><p>' + UI.esc(app.description) + '</p>' +

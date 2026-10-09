@@ -100,7 +100,7 @@ window.Views.app_center = (function () {
     el.querySelectorAll('.open-app-btn').forEach(b => {
       b.addEventListener('click', () => {
         if (b.dataset.url) window.open(b.dataset.url, '_blank', 'noopener');
-        else if (b.dataset.route === 'problems') Router.go('problems');
+        else if (['problems', 'projects', 'standardization'].includes(b.dataset.route)) Router.go(b.dataset.route);
         else UI.toast('该模块尚未配置部署入口，已保留在应用注册中心。', 'warn');
       });
     });

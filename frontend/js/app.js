@@ -62,7 +62,8 @@
           setMobileNavOpen(false);
           const app = isApp && items.find((candidate) => candidate.route_path === item.dataset.key);
           if (app && app.entry_url) window.open(app.entry_url, '_blank', 'noopener');
-          else if (app && app.route_path !== 'problems') Router.go('app_center');
+          else if (app && ['problems', 'projects', 'standardization'].includes(app.route_path)) Router.go(item.dataset.key);
+          else if (app) Router.go('app_center');
           else Router.go(item.dataset.key);
         });
     });
