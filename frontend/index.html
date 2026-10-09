@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/css/tokens.css?v=031" />
   <link rel="stylesheet" href="/css/layout.css?v=031" />
   <link rel="stylesheet" href="/css/components.css?v=031" />
+  <link rel="stylesheet" href="/css/polish.css?v=001" />
 </head>
 <body>
   <div id="app">
@@ -39,10 +40,14 @@
         <div class="user-line"><span class="user-avatar">测</span> 研发质量测试员</div>
       </div>
     </aside>
+    <button class="mobile-nav-backdrop" id="mobileNavBackdrop" type="button" aria-label="关闭导航" tabindex="-1"></button>
 
     <div class="main">
       <header class="topbar">
         <div class="topbar-left">
+          <button class="mobile-nav-toggle" id="mobileNavToggle" type="button" aria-label="打开导航" aria-expanded="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          </button>
           <div class="breadcrumb" id="breadcrumb">
             <span id="breadcrumbCategory">智能工作台</span>
             <span class="breadcrumb-sep">/</span>
@@ -64,9 +69,9 @@
   <script src="/js/ui.js?v=020"></script>
   <script src="/js/router.js?v=020"></script>
   <script src="/js/views/dashboard.js?v=031"></script>
-  <script src="/js/views/app_center.js?v=031"></script>
+  <script src="/js/views/app_center.js?v=032"></script>
   <script src="/js/views/todos.js?v=031"></script>
   <script src="/js/views/problems.js?v=031"></script>
-  <script src="/js/app.js?v=020"></script>
+  <script src="/js/app.js?v=021"></script>
 </body>
 </html>
