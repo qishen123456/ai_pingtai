@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import FRONTEND_DIR
 from .db import init_db
-from .routers import dashboard, imports, records, apps
+from .routers import dashboard, imports, records, apps, projects, standardization
 
 
 @contextlib.asynccontextmanager
@@ -51,6 +51,8 @@ app.include_router(dashboard.router)
 app.include_router(imports.router)
 app.include_router(records.router)
 app.include_router(apps.router)
+app.include_router(projects.router)
+app.include_router(standardization.router)
 
 
 # 静态前端挂载在最后，避免拦截 /api

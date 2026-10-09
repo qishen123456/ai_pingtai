@@ -68,18 +68,25 @@ python3 -m venv .venv
 | 必填/空值/枚举/日期校验、预览编辑、剔除、确认模拟入库、失败明细、台账、批次历史、防重复提交 | ✅ 真实可用 |
 | 大模型表头识别 | 🔌 接口已预留（`backend/app/services/recognizer.py`），当前不启用，切换需显式配置 |
 | 真实 QMS 问题库写入 | 🔌 模拟写入本地表，后续只替换写入适配器 |
-| `problem-hub` / `pm-platform` | ↗️ 独立系统；设置 `PROBLEM_HUB_URL` / `PM_PLATFORM_URL` 后由门户跳转 |
-| 标准化与优选件、质量决策助手 | ⏸ 规划中；需业务规则、数据接口与样本后启动 |
+| 问题经验、项目管理、标准化与优选件 | ✅ 本地试点可操作；分别含 Excel 导入、DCP/风险闭环、物料目录/BOM 校验 |
+| `problem-hub` / `pm-platform` | ↗️ 独立系统；设置 `PROBLEM_HUB_URL` / `PM_PLATFORM_URL` 后由门户跳转，本地试点数据不自动同步 |
+| PLM 真实数据同步 / 自动写回 | ⏸ 未接入；当前用人工维护的本地物料档案与确定性规则验证流程 |
+| 质量决策助手 | ⏸ 规划中；需质量库接口、权限和可追溯证据后启动 |
 | 登录鉴权 / 多用户 | ⏸ 门户试点未实现；企业版应复用已验证的认证、RBAC、审计方案 |
 
 ---
 
+## 四、三个业务板块的试点能力
+
+- **问题经验**：Excel 上传、工作表/表头识别、手动映射、校验、异常剔除、导入历史、台账检索。
+- **项目管理**：项目新增/编辑、阶段与进度、DCP 节点、风险等级/责任人/到期日、风险关闭、组合指标及 Markdown 周报导出。
+- **标准化与优选件**：物料档案新增/编辑、优选件标记、生命周期管理、文本相似度检索、BOM 逐项合规判断、替代优选件建议和历史检查记录。
+- 两个新增业务板块的数据存储在本地试点数据库；相似件为确定性文本匹配而非大模型结论。正式接入 PLM/QMS/独立项目管理系统前，仍需对接契约、权限、审计及业务验收。
+
 ## 四、实际运行的测试
 
 - 单元/接口测试：`cd workbench && .venv/bin/python -m pytest backend/tests -q`
-- 结果：**14 passed**（含应用注册内置模块、输入校验与草稿创建；以及健康检查、非 xlsx 拒绝 400、损坏文件 422、同义词映射、待确认列标记、
-  同字段多列去重、手动改选映射、非问题表切换 422、确认入库成功/失败/剔除计数、
-  重复提交 409、修改后入库、台账搜索过滤、批次历史）。
+- 结果以当前分支 GitHub Actions 为准；新增覆盖项目管理接口、DCP/风险生命周期、物料目录、相似件检索、BOM 校验规则及历史查询。
 - 真实样本端到端冒烟（curl）：9 行识别 → 2 行错误被拒并给出原因 → 7 行入库 →
   重复提交 409 → 台账/历史/首页计数一致。
 - 语法门禁：`PYTHONPYCACHEPREFIX=/tmp/workbench-pycache .venv/bin/python -m compileall -q backend` 通过。
@@ -98,7 +105,7 @@ workbench/
 │   ├── routers/            # dashboard / imports / records
 │   └── services/           # excel_service（解析编排）/ mapping（词典）/
 │                           # normalizer（归一校验）/ recognizer（LLM 预留）
-├── backend/tests/          # pytest 14 例
+├── backend/tests/          # pytest 接口与业务规则测试
 ├── frontend/               # 原生 JS + CSS，无任何 CDN 依赖（内网可直接打开）
 │   ├── index.html
 │   ├── css/  js/  js/views/  samples/（演示样本）

@@ -5,7 +5,7 @@ import hashlib
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, JSON, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .db import Base
@@ -122,3 +122,79 @@ def app_to_dict(app: AppRegistry) -> dict:
         "evidence_note": app.evidence_note,
         "created_at": app.created_at.strftime("%Y-%m-%d %H:%M"),
     }
+
+
+# --- 新增业务模块：项目管理与标准化优选件（本地试点模型） ---
+class PMProject(Base):
+    __tablename__ = "pm_projects"
+    __table_args__ = (UniqueConstraint("code", name="uq_pm_project_code"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    code: Mapped[str] = mapped_column(String(32), index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    product_line: Mapped[str] = mapped_column(String(100), default="")
+    owner: Mapped[str] = mapped_column(String(80), default="待指定")
+    stage: Mapped[str] = mapped_column(String(20), default="预研", index=True)
+    status: Mapped[str] = mapped_column(String(20), default="normal", index=True)
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    planned_start: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    planned_end: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class PMProjectMilestone(Base):
+    __tablename__ = "pm_project_milestones"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("pm_projects.id"), index=True)
+    gate: Mapped[str] = mapped_column(String(12), index=True)
+    title: Mapped[str] = mapped_column(String(160))
+    planned_date: Mapped[str] = mapped_column(String(10), index=True)
+    actual_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    owner: Mapped[str] = mapped_column(String(80), default="待指定")
+    notes: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class PMProjectRisk(Base):
+    __tablename__ = "pm_project_risks"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("pm_projects.id"), index=True)
+    title: Mapped[str] = mapped_column(String(240))
+    level: Mapped[str] = mapped_column(String(12), default="medium", index=True)
+    owner: Mapped[str] = mapped_column(String(80), default="待指定")
+    due_date: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
+    mitigation: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(20), default="open", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class StandardPart(Base):
+    __tablename__ = "standard_parts"
+    __table_args__ = (UniqueConstraint("part_no", name="uq_standard_part_no"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    part_no: Mapped[str] = mapped_column(String(80), index=True)
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    specification: Mapped[str] = mapped_column(String(300), default="")
+    category: Mapped[str] = mapped_column(String(100), default="未分类", index=True)
+    manufacturer: Mapped[str] = mapped_column(String(160), default="")
+    lifecycle: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    is_preferred: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    replacement_part_no: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class StandardBomRun(Base):
+    __tablename__ = "standard_bom_runs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    bom_name: Mapped[str] = mapped_column(String(160))
+    total_items: Mapped[int] = mapped_column(Integer, default=0)
+    compliant_items: Mapped[int] = mapped_column(Integer, default=0)
+    review_items: Mapped[int] = mapped_column(Integer, default=0)
+    blocked_items: Mapped[int] = mapped_column(Integer, default=0)
+    input_json: Mapped[list] = mapped_column(JSON, default=list)
+    result_json: Mapped[list] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
