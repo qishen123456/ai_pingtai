@@ -28,6 +28,7 @@ app = FastAPI(title="企业 AI 业务工作台", version="0.2.0", lifespan=lifes
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     request_id = uuid.uuid4().hex[:12]
+    request.state.request_id = request_id
     response = await call_next(request)
     response.headers["X-Request-ID"] = request_id
     return response
@@ -41,7 +42,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         content={
             "code": "internal_error",
             "message": "服务器内部错误，请携带页面信息联系管理员",
-            "request_id": uuid.uuid4().hex[:12],
+            "request_id": getattr(request.state, "request_id", "unknown"),
         },
     )
 
