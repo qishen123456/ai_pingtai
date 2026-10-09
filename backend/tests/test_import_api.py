@@ -221,6 +221,89 @@ def test_records_search_filter(client):
     assert r3.json()["total"] == 0
 
 
+def test_duplicate_row_does_not_rollback_other_rows_in_same_batch(client):
+    # 先导入一条位于 Excel 第 3 行的记录，使后续批次中的第 3 行触发唯一约束冲突。
+    duplicate = [1, "已有问题", "结构", "质量部", "M-100", "A", "张三", "2026-10-15"]
+    first = _upload(client, _xlsx(HEADERS, [[None] * len(HEADERS), duplicate]))
+    assert first.status_code == 200, first.text
+    first_rows = first.json()["preview"]["rows"]
+    assert first_rows[0]["excel_row"] == 3
+    first_confirm = client.post(
+        "/api/imports/%d/confirm" % first.json()["batch_id"],
+        json={"rows": [{
+            "excel_row": row["excel_row"],
+            "excluded": row["excluded"],
+            "values": row["values"],
+        } for row in first_rows]},
+    )
+    assert first_confirm.status_code == 200, first_confirm.text
+    assert first_confirm.json()["imported"] == 1
+
+    # 第二批第 2 行为新记录，第 3 行与旧记录指纹冲突。新记录必须保留。
+    new_row = [2, "新问题", "电子", "质量部", "M-200", "B", "李四", "2026-10-20"]
+    second = _upload(client, _xlsx(HEADERS, [new_row, duplicate]))
+    assert second.status_code == 200, second.text
+    second_rows = second.json()["preview"]["rows"]
+    second_confirm = client.post(
+        "/api/imports/%d/confirm" % second.json()["batch_id"],
+        json={"rows": [{
+            "excel_row": row["excel_row"],
+            "excluded": row["excluded"],
+            "values": row["values"],
+        } for row in second_rows]},
+    )
+    assert second_confirm.status_code == 200, second_confirm.text
+    result = second_confirm.json()
+    assert result["imported"] == 1
+    assert result["duplicates"] == 1
+
+    records = client.get("/api/records").json()
+    assert records["total"] == 2
+    descriptions = {row["description"] for row in records["items"]}
+    assert descriptions == {"已有问题", "新问题"}
+
+
+def test_confirm_rejects_rows_outside_current_preview(client):
+    uploaded = _upload(client, _xlsx(HEADERS, [
+        [1, "合法问题", "结构", "质量部", "M-100", "A", "张三", "2026-10-15"],
+    ]))
+    assert uploaded.status_code == 200, uploaded.text
+    data = uploaded.json()
+    rows = data["preview"]["rows"]
+    forged = [{
+        "excel_row": rows[0]["excel_row"],
+        "excluded": False,
+        "values": rows[0]["values"],
+    }, {
+        "excel_row": 999,
+        "excluded": False,
+        "values": {"description": "伪造行"},
+    }]
+    response = client.post(
+        "/api/imports/%d/confirm" % data["batch_id"],
+        json={"rows": forged},
+    )
+    assert response.status_code == 422
+    assert client.get("/api/records").json()["total"] == 0
+
+
+def test_confirm_rejects_duplicate_excel_row_numbers(client):
+    uploaded = _upload(client, _xlsx(HEADERS, [
+        [1, "合法问题", "结构", "质量部", "M-100", "A", "张三", "2026-10-15"],
+    ]))
+    data = uploaded.json()
+    row = data["preview"]["rows"][0]
+    response = client.post(
+        "/api/imports/%d/confirm" % data["batch_id"],
+        json={"rows": [
+            {"excel_row": row["excel_row"], "excluded": False, "values": row["values"]},
+            {"excel_row": row["excel_row"], "excluded": False, "values": row["values"]},
+        ]},
+    )
+    assert response.status_code == 422
+    assert client.get("/api/records").json()["total"] == 0
+
+
 def test_batches_history_and_target_label(client):
     r = _upload(client, _xlsx(HEADERS, GOOD_ROWS))
     batch_id = r.json()["batch_id"]
