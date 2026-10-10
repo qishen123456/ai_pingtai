@@ -68,3 +68,41 @@ def test_project_date_validation_and_filters(client):
     assert response.status_code == 200
     assert response.json()["total"] == 1
     assert response.json()["items"][0]["code"] == "PRJ-1003"
+
+
+
+def test_dcp_gate_duplicates_are_rejected_and_sequential_policy_is_enforced(client, monkeypatch):
+    from backend.app.routers import projects as project_router
+
+    monkeypatch.setattr(project_router, "DCP_GATE_POLICY", "sequential")
+    created = client.post("/api/projects", json={"code": "PRJ-DCP-SEQ", "name": "DCP 顺序规则测试"})
+    assert created.status_code == 201, created.text
+    project_id = created.json()["id"]
+
+    dcp2 = client.post(f"/api/projects/{project_id}/milestones", json={
+        "gate": "DCP2", "title": "DCP2 评审", "planned_date": "2026-12-01"
+    })
+    assert dcp2.status_code == 201, dcp2.text
+    duplicate = client.post(f"/api/projects/{project_id}/milestones", json={
+        "gate": "DCP2", "title": "重复 DCP2", "planned_date": "2026-12-02"
+    })
+    assert duplicate.status_code == 409
+
+    blocked = client.patch(f"/api/projects/milestones/{dcp2.json()['id']}", json={"status": "passed"})
+    assert blocked.status_code == 409
+    assert "DCP0" in blocked.json()["detail"]
+
+    for gate in ("DCP0", "DCP1"):
+        created_gate = client.post(f"/api/projects/{project_id}/milestones", json={
+            "gate": gate, "title": gate + " 评审", "planned_date": "2026-11-01"
+        })
+        assert created_gate.status_code == 201, created_gate.text
+        passed = client.patch(
+            f"/api/projects/milestones/{created_gate.json()['id']}", json={"status": "passed"}
+        )
+        assert passed.status_code == 200, passed.text
+
+    passed_dcp2 = client.patch(
+        f"/api/projects/milestones/{dcp2.json()['id']}", json={"status": "passed"}
+    )
+    assert passed_dcp2.status_code == 200, passed_dcp2.text
