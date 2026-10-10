@@ -102,6 +102,7 @@ services:
       PGPASSWORD: ${BACKUP_DB_PASSWORD:?Set a strong URL-safe backup role password}
       BACKUP_DIR: /app/backups
       BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      UPLOAD_DIR: /app/data/uploads
     volumes:
       - workbench_data:/app/data:ro
       - ${BACKUP_HOST_DIR:-./backups}:/app/backups
