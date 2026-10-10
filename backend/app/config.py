@@ -50,6 +50,9 @@ MODEL_GATEWAY_URL = os.getenv("MODEL_GATEWAY_URL", "").strip()
 MODEL_NAME = os.getenv("MODEL_NAME", "").strip()
 MODEL_API_KEY = os.getenv("MODEL_API_KEY", "").strip()
 RECOGNIZER_ENGINE = os.getenv("RECOGNIZER_ENGINE", "rule").strip().lower()
+# Business-owned policy: remain explicitly unconfigured until the DCP process owner signs off.
+DCP_GATE_POLICY = os.getenv("DCP_GATE_POLICY", "unconfigured").strip().lower()
+BOM_POLICY_VERSION = os.getenv("BOM_POLICY_VERSION", "unconfigured").strip()
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").strip().upper()
 METRICS_ENABLED = os.getenv("METRICS_ENABLED", "false").strip().lower() == "true"
