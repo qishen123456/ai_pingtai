@@ -184,10 +184,8 @@ window.Views.assistant = (function () {
           const index = Number(button.dataset.questionIndex);
           const key = button.dataset.pickDomain;
           if (state.messages[index] && state.messages[index].result) {
-            state.messages[index].result = { kind: "route", domain: key, method: "你确认了业务域", score: 1 };
-            state.messages[index].result.matched = [];
-            // Preserve the original question and append the confirmed routing card.
-            state.messages.push({ role: "assistant", result: { kind: "route", domain: key, method: "你确认了业务域", score: 1 } });
+            state.messages[index].result = { kind: "route", domain: key, method: "你确认了业务域", score: 1, matched: [] };
+            // Replace the clarification prompt in place; do not duplicate the same answer card.
           }
           renderMessages();
         });
