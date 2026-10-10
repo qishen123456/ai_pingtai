@@ -21,6 +21,7 @@ jobs:
         run: |
           cat > /tmp/workbench-compose.env <<'EOF'
           DB_PASSWORD=CiUrlSafePassword_2026
+          BACKUP_DB_PASSWORD=CiBackupUrlSafePassword_2026
           AUTH_ADMIN_GROUPS=ci-admins
           AUTH_QUALITY_GROUPS=ci-quality
           AUTH_PM_GROUPS=ci-pm
