@@ -75,6 +75,9 @@ window.Views.assistant = (function () {
     const spec = domains[domainKey];
     if (!spec) return { label: "需要确认", tone: "neutral", detail: "先确认主要业务域。" };
     const app = findApp(spec.route);
+    if (domainKey === "quality" && app && app.status === "active" && app.entry_url) {
+      return { label: "独立系统入口已配置", tone: "good", detail: "可从统一入口跳转到独立质量决策系统。" };
+    }
     if (domainKey === "quality") {
       return {
         label: "待接入",
@@ -124,6 +127,10 @@ window.Views.assistant = (function () {
     const spec = domains[domainKey];
     if (!spec) return;
     const app = findApp(spec.route);
+    if (domainKey === "quality" && app && app.status === "active" && app.entry_url) {
+      window.open(app.entry_url, "_blank", "noopener");
+      return;
+    }
     if (domainKey === "quality") {
       Router.go("app_center");
       UI.toast("质量决策助手仍待真实数据源与模型网关接入，已打开应用中心查看状态。", "warn");
