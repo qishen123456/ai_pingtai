@@ -37,6 +37,8 @@ def test_rbac_blocks_viewer_from_mutating_project_data(client, monkeypatch):
     assert session.status_code == 200
     assert session.json()["actor"] == "qa-reader@example.com"
     assert session.json()["roles"] == ["viewer"]
+    assert client.get("/api/apps", headers=headers).status_code == 200
+    assert client.get("/api/dashboard", headers=headers).status_code == 200
 
     response = client.post("/api/projects", headers=headers, json={
         "code": "PRJ-SEC-01", "name": "RBAC permission test"
