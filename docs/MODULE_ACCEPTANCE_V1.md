@@ -25,6 +25,11 @@
 
 ## 公共限制
 
-- 本地数据库仅用于单环境试点；暂未实现登录/SSO/RBAC、多租户、操作审计和正式数据库迁移流程。
+- 本地数据库仅用于单环境试点。代码已有可信反向代理身份读取、模块级 RBAC、基础操作审计、PostgreSQL/Alembic 生产门禁与备份脚本；企业 IdP、角色组、数据级授权、多租户策略、审计保存/防篡改及真实环境迁移/恢复演练仍待配置和验收。
 - 真实数据接入前需要业务负责人确认字段、枚举、权限、连接方式、错误处理和验收样本。
 - 测试命令：python -m pytest backend/tests -q；JavaScript 语法检查由 .github/workflows/tests.yml 执行。
+
+
+## 生产化骨架与严格边界
+
+生产配置要求 PostgreSQL、可信 OIDC 网关、真实身份组映射，并明确 DCP、BOM 和导入去重策略；缺少的企业信息都保留为占位符。真实 QMS、PLM、problem-hub、pm-platform 与模型网关适配器尚未实现，配置 URL 不代表接通。详见 [生产化准备清单](PRODUCTIONIZATION.md)。
