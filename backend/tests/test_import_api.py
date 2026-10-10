@@ -324,3 +324,36 @@ def test_batches_history_and_target_label(client):
     detail = client.get("/api/imports/%d" % batch_id).json()
     assert detail["status"] == "confirmed"
     assert "模拟" in detail["preview"].get("sheet_name", "") or True  # 结构存在即可
+
+
+
+def test_truncated_workbook_is_visible_and_cannot_be_confirmed(client):
+    from backend.app.config import MAX_PREVIEW_ROWS
+
+    rows = [
+        [index + 1, "超过预览上限的问题 %05d" % index, "结构", "结构开发部",
+         "MODEL-1", "B", "责任人甲", "2026-11-01"]
+        for index in range(MAX_PREVIEW_ROWS + 5)
+    ]
+    uploaded = _upload(client, _xlsx(HEADERS, rows))
+    assert uploaded.status_code == 200, uploaded.text
+    data = uploaded.json()
+    assert data["preview"]["truncated"] is True
+    assert "禁止确认" in data["preview"]["truncation_warning"]
+
+    response = client.post(f"/api/imports/{data['batch_id']}/confirm", json={
+        "rows": [{
+            "excel_row": 2,
+            "excluded": False,
+            "values": {
+                "description": "不应被部分确认",
+                "category": "结构",
+                "dept": "结构开发部",
+                "model": "MODEL-1",
+                "severity": "B",
+                "owner": "责任人甲",
+            },
+        }]
+    })
+    assert response.status_code == 422
+    assert "禁止确认" in response.json()["detail"]
