@@ -1,15 +1,29 @@
-.venv/
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.pytest_cache/
+# Secrets and environment-specific configuration
+.env
+.env.*
+!.env.example
+
+# Runtime data, uploads, local SQLite, logs and backups
+data/
+uploads/
+backups/
 *.db
 *.sqlite
 *.sqlite3
+*.log
+
+# Python and local tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# OS/editor files
 .DS_Store
 .vscode/
 .idea/
-logs/
-*.log
-data/uploads/
