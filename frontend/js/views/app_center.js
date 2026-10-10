@@ -70,7 +70,7 @@ window.Views.app_center = (function () {
         '</div>' +
         '<div class="registry-tools">' +
           '<div class="registry-search"><span>' + UI.icon("search") + '</span><input type="text" id="searchApp" placeholder="搜索应用名称、负责人或描述" value="' + UI.esc(state.searchKw) + '"></div>' +
-          '<div class="registry-tabs" id="statusFilter">' +
+          '<div class="registry-tabs" id="statusFilter" role="tablist" aria-label="应用生命周期筛选">' +
             '<button type="button" role="tab" aria-selected="' + (state.filterStatus === 'all' ? 'true' : 'false') + '" class="tab ' + (state.filterStatus === 'all' ? 'active' : '') + '" data-status="all">全部生命周期</button>' +
             '<button type="button" role="tab" aria-selected="' + (state.filterStatus === 'active' ? 'true' : 'false') + '" class="tab ' + (state.filterStatus === 'active' ? 'active' : '') + '" data-status="active">服务可用</button>' +
             '<button type="button" role="tab" aria-selected="' + (state.filterStatus === 'planned' ? 'true' : 'false') + '" class="tab ' + (state.filterStatus === 'planned' ? 'active' : '') + '" data-status="planned">规划设计中</button>' +
