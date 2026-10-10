@@ -22,6 +22,9 @@ jobs:
           cat > /tmp/workbench-compose.env <<'EOF'
           DB_PASSWORD=CiUrlSafePassword_2026
           BACKUP_DB_PASSWORD=CiBackupUrlSafePassword_2026
+          DCP_GATE_POLICY=sequential
+          BOM_POLICY_VERSION=ci-approved-baseline
+          IMPORT_DEDUPE_POLICY=content
           AUTH_ADMIN_GROUPS=ci-admins
           AUTH_QUALITY_GROUPS=ci-quality
           AUTH_PM_GROUPS=ci-pm
