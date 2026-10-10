@@ -41,10 +41,10 @@
    同时手动将 `deploy/nginx.conf` 中的 `server_name workbench.example.invalid` 替换为真实域名，并把匹配该域名的证书放到 `deploy/tls/fullchain.pem` 和 `deploy/tls/privkey.pem`；当前只是路径占位，不包含企业证书签发/续期配置。
 4. 先明确当前 SQLite 试点数据是否需要保留。**当前没有自动 SQLite→PostgreSQL 数据迁移工具**，如需保留台账/批次/上传附件，必须单独制定并验证转换、条数对账和回滚方案；不要仅修改 DATABASE_URL 后就认为数据已迁移。由 DBA 确认生产库、网络和 TLS 策略。演练迁移：docker compose -f docker-compose.production.yml run --rm migrate。
 5. 测试环境先启动并验证：docker compose -f docker-compose.production.yml up -d db migrate app auth-proxy nginx。验证登录、角色权限、健康检查和外部系统状态页。
-6. 在 Compose 的 ops profile 下运行备份任务：docker compose -f docker-compose.production.yml --profile ops run --rm backup。它会一起备份 PostgreSQL 和上传文件目录；再在隔离环境做完整恢复演练并记录恢复时间。归档列表检查成功并不等于已证明可恢复。
+6. 先为备份目录创建权限受控的宿主机持久化目录（容器备份进程 UID/GID 为 10001；例如创建目录后执行 sudo chown 10001:10001 ./backups 并设置 700 权限）。在 Compose 的 ops profile 下运行备份任务：docker compose -f docker-compose.production.yml --profile ops run --rm backup。它会一起备份 PostgreSQL 和上传文件目录；再在隔离环境做完整恢复演练并记录恢复时间。归档列表检查成功并不等于已证明可恢复。
 7. 配置日志收集、告警、磁盘/DB 容量监控、证书续期、漏洞扫描、备份告警与回滚责任人。
 
-配置模板不会自动创建企业身份应用、TLS 证书、防火墙规则或数据库凭证。
+配置模板不会自动创建企业身份应用、TLS 证书、防火墙规则或数据库凭证。 PostgreSQL 初始化脚本 deploy/postgres-init/01-backup-role.sh 仅在空数据卷首次创建数据库时自动执行；如果数据库卷已存在，请由 DBA 手动执行 docker compose -f docker-compose.production.yml exec -T db bash /docker-entrypoint-initdb.d/01-backup-role.sh，核对备份角色权限后再启用备份任务。
 
 ## 4. 备份、恢复与发布要求
 
