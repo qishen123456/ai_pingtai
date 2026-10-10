@@ -662,3 +662,184 @@ code {
 
 /* Numeric result counters align like technical output; ordinary prose keeps the UI font. */
 .result-card .num { font-family: var(--font-mono); letter-spacing: -.035em; }
+
+
+/* Dashboard v2 — a visibly asymmetric Bento composition, not four equal KPI tiles. */
+.command-hero {
+  min-height: 306px;
+  padding: clamp(30px, 3.2vw, 44px) clamp(28px, 3.8vw, 54px);
+  border-color: rgba(114, 148, 206, .24);
+  box-shadow: 0 22px 52px rgba(15, 35, 68, .14);
+}
+.command-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(110deg, rgba(255,255,255,.025), transparent 42%, rgba(84,126,199,.08));
+}
+.command-copy h1 { max-width: 680px; font-weight: 650; }
+.command-copy p { max-width: 610px; }
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-areas:
+    "records records import apps"
+    "records records pending pending";
+  grid-auto-rows: minmax(98px, auto);
+  align-items: stretch;
+  gap: 13px;
+  margin: 18px 0 27px;
+}
+.metric-card {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 17px 18px;
+  overflow: hidden;
+  border: 1px solid #e4eaf4;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fff 0%, #fbfcff 100%);
+  box-shadow: 0 3px 12px rgba(25, 43, 77, .035);
+  transition:
+    transform 240ms var(--ease-spring),
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+.metric-0 { grid-area: import; }
+.metric-1 {
+  grid-area: records;
+  display: flex;
+  min-height: 209px;
+  padding: 26px 28px;
+  justify-content: center;
+  border-color: #dbe5f7;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(100, 139, 220, .13), transparent 33%),
+    linear-gradient(145deg, #fff 0%, #f5f8ff 100%);
+  box-shadow: 0 8px 24px rgba(30, 58, 112, .065);
+}
+.metric-2 { grid-area: apps; }
+.metric-3 {
+  grid-area: pending;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 16px;
+  row-gap: 3px;
+}
+.metric-card:not(.metric-1) .metric-label { grid-column: 1; grid-row: 1; }
+.metric-card:not(.metric-1) strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  margin: 0;
+  font-size: 25px;
+}
+.metric-card:not(.metric-1) .metric-caption { grid-column: 1; grid-row: 2; align-self: start; }
+.metric-1 .metric-label {
+  color: #657895;
+  font-size: 12px;
+  letter-spacing: .01em;
+}
+.metric-1 strong {
+  position: relative;
+  z-index: 1;
+  margin: 11px 0 7px;
+  color: #172b4d;
+  font-size: clamp(38px, 3vw, 48px);
+  line-height: 1.04;
+  letter-spacing: -.055em;
+}
+.metric-1 strong em { font-size: 14px; letter-spacing: 0; }
+.metric-1 .metric-caption { color: #8291a8; font-size: 11px; }
+.metric-1 .metric-orbit {
+  top: auto;
+  right: -18px;
+  bottom: -48px;
+  width: 178px;
+  height: 178px;
+  border-width: 24px;
+  border-color: #e8effd;
+  opacity: .75;
+}
+.metric-card:not(.metric-1) .metric-orbit {
+  top: -38px;
+  right: -33px;
+  width: 92px;
+  height: 92px;
+  border-width: 13px;
+  opacity: .52;
+}
+.metric-card:hover {
+  transform: translateY(-3px);
+  border-color: #c7d6f1;
+  box-shadow: 0 13px 30px rgba(30, 58, 112, .095);
+}
+.metric-1:hover {
+  border-color: #cbdaf4;
+  box-shadow: 0 16px 36px rgba(30, 58, 112, .11);
+}
+
+.overview-layout { align-items: start; gap: 16px; }
+.build-panel, .architecture-panel { min-height: 0; }
+.build-panel { padding-bottom: 13px; }
+.build-row { align-items: start; }
+.mission-grid { gap: 16px; }
+.mission-card, .registry-app-card { border-radius: 16px; }
+.registry-hero { border-radius: 18px; padding: 30px 32px 23px; }
+.registry-grid { gap: 16px; }
+.registry-app-card { min-height: 238px; padding: 23px; }
+.experience-metrics, .pm-kpis, .std-kpis { gap: 14px; }
+
+@media (max-width: 1100px) {
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "records records"
+      "import apps"
+      "pending pending";
+    grid-auto-rows: minmax(94px, auto);
+  }
+  .metric-1 { min-height: 148px; }
+}
+@media (max-width: 768px) {
+  .command-hero { min-height: 0; padding: 28px 22px; }
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-areas:
+      "records records"
+      "import apps"
+      "pending pending";
+    grid-auto-rows: minmax(96px, auto);
+    gap: 10px;
+  }
+  .metric-card { padding: 14px; border-radius: 13px; }
+  .metric-1 {
+    min-height: 118px;
+    padding: 18px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-content: center;
+    column-gap: 12px;
+    row-gap: 3px;
+  }
+  .metric-1 .metric-label { grid-column: 1; grid-row: 1; font-size: 11px; }
+  .metric-1 strong { grid-column: 2; grid-row: 1 / span 2; align-self: center; margin: 0; font-size: 34px; }
+  .metric-1 .metric-caption { grid-column: 1; grid-row: 2; }
+  .metric-1 .metric-orbit { width: 110px; height: 110px; right: -25px; bottom: -42px; border-width: 15px; }
+  .metric-card:not(.metric-1) { grid-template-columns: minmax(0,1fr) auto; padding: 14px; }
+  .metric-card:not(.metric-1) strong { font-size: 22px; }
+  .overview-layout { align-items: stretch; }
+  .registry-hero { padding: 22px 20px 18px; }
+  .registry-app-card { padding: 19px; }
+}
+@media (max-width: 420px) {
+  .metric-card:not(.metric-1) strong { font-size: 19px; }
+  .metric-1 strong { font-size: 30px; }
+}
