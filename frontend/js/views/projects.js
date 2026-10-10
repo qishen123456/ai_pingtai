@@ -275,12 +275,15 @@ window.Views.projects = (function () {
       return String(a.planned_date || "").localeCompare(String(b.planned_date || "")) || gateOrder(a.gate) - gateOrder(b.gate);
     });
     const projectsHtml = state.projects.map(function (project) {
+      const projectGates = allGates.filter(function (milestone) { return milestone.project_id === project.id; })
+        .sort(function (a, b) { return gateOrder(a.gate) - gateOrder(b.gate); });
       const milestones = filtered.filter(function (milestone) { return milestone.project_id === project.id; })
         .sort(function (a, b) { return gateOrder(a.gate) - gateOrder(b.gate); });
       if (!milestones.length) return "";
-      const passed = milestones.filter(function (milestone) { return milestone.status === "passed"; }).length;
-      return '<section class="pm-gate-project"><header class="pm-gate-project-head"><div class="pm-gate-project-identity"><span class="pm-gate-project-code">' + esc(project.code) + '</span><h3>' + esc(project.name) + '</h3><p>' + esc(project.owner || "待指定") + ' · ' + esc(project.stage) + '阶段</p></div>' +
-        '<div class="pm-gate-project-progress"><strong>' + passed + '<small> / ' + milestones.length + '</small></strong><span>已通过关口</span></div></header>' +
+      // Portfolio completion always uses the project's full gate set, not the active filter subset.
+      const passed = projectGates.filter(function (milestone) { return milestone.status === "passed"; }).length;
+      return '<section class="pm-gate-project"><header class="pm-gate-project-head"><div class="pm-gate-project-identity"><span class="pm-gate-project-code">' + esc(project.code) + '</span><h3>' + esc(project.name) + '</h3><p>' + esc(project.owner || "待指定") + ' · ' + esc(project.stage) + '阶段 <span class="pm-gate-visible-count">当前显示 ' + milestones.length + ' / ' + projectGates.length + ' 个关口</span></p></div>' +
+        '<div class="pm-gate-project-progress"><strong>' + passed + '<small> / ' + projectGates.length + '</small></strong><span>已通过关口</span></div></header>' +
         '<div class="pm-timeline">' + milestones.map(function (milestone) {
           const visual = gateVisualState(milestone);
           const actual = milestone.actual_date ? '<span class="pm-date-confirmed">实际 ' + shortDate(milestone.actual_date) + '</span>' : "";
@@ -381,7 +384,16 @@ window.Views.projects = (function () {
       { key: "resolved", title: "已解决", desc: "已闭环归档", icon: "check-circle" }
     ];
     const board = boardStatuses.map(function (bucket) {
-      const items = filtered.filter(function (risk) { return risk.status === bucket.key; });
+      const levelRank = { high: 0, medium: 1, low: 2 };
+      const items = filtered.filter(function (risk) { return risk.status === bucket.key; }).sort(function (a, b) {
+        if (Boolean(a.overdue) !== Boolean(b.overdue)) return a.overdue ? -1 : 1;
+        const levelDifference = (levelRank[a.level] ?? 1) - (levelRank[b.level] ?? 1);
+        if (levelDifference) return levelDifference;
+        if (a.due_date && b.due_date) return String(a.due_date).localeCompare(String(b.due_date));
+        if (a.due_date) return -1;
+        if (b.due_date) return 1;
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
       return '<section class="pm-risk-column ' + bucket.key + '"><header class="pm-risk-column-head"><div><span class="pm-risk-column-icon">' + UI.icon(bucket.icon) + '</span><div><h4>' + bucket.title + '</h4><p>' + bucket.desc + '</p></div></div><span class="pm-risk-count">' + items.length + '</span></header>' +
         '<div class="pm-risk-column-body">' + (items.length ? items.map(function (risk) {
           const overdueFlag = risk.overdue ? '<span class="pm-risk-overdue"><i></i>逾期</span>' : '';
