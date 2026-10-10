@@ -538,6 +538,27 @@ window.Views.projects = (function () {
     UI.toast("周报已生成，请确认其中的本地试点数据后再转发。", "success");
   }
 
+  function closePmModal(host) {
+    if (host && host._pmModalKeyHandler) {
+      document.removeEventListener("keydown", host._pmModalKeyHandler);
+      host._pmModalKeyHandler = null;
+    }
+    if (host) host.innerHTML = "";
+  }
+
+  function bindPmModal(host, focusSelector) {
+    const close = function () { closePmModal(host); };
+    host._pmModalKeyHandler = function (event) {
+      if (event.key === "Escape") close();
+    };
+    document.addEventListener("keydown", host._pmModalKeyHandler);
+    host.querySelectorAll("[data-pm-close]").forEach(function (button) { button.addEventListener("click", close); });
+    const backdrop = host.querySelector(".pm-modal-backdrop");
+    if (backdrop) backdrop.addEventListener("click", function (event) { if (event.target === backdrop) close(); });
+    const focus = focusSelector ? host.querySelector(focusSelector) : null;
+    if (focus) focus.focus();
+  }
+
   function showProjectDetail(project) {
     const host = document.getElementById("modalHost");
     const gates = orderedMilestones(project);
@@ -577,87 +598,153 @@ window.Views.projects = (function () {
   function showProjectForm(project) {
     const editing = !!project;
     const host = document.getElementById("modalHost");
-    host.innerHTML = '<div class="modal-mask"><div class="modal-box pm-form-modal"><div class="modal-head">' + (editing ? "编辑项目" : "新建项目") + '</div>' +
+    const modalHtml = '<div class="modal-mask pm-modal-backdrop"><section class="modal-box pm-form-modal" role="dialog" aria-modal="true" aria-labelledby="pmProjectFormTitle">' +
+      '<header class="pm-form-head"><div><span class="pm-section-kicker">PROJECT RECORD / SETUP</span><h2 id="pmProjectFormTitle">' + (editing ? "编辑项目档案" : "创建项目") + '</h2><p>维护项目阶段、责任人与计划日期。进度为项目负责人维护值。</p></div><button type="button" class="pm-icon-button" data-pm-close aria-label="关闭">×</button></header>' +
       '<div class="modal-body"><div class="pm-form-grid">' +
-      '<div class="form-group"><label class="form-label">项目编号 *</label><input class="input" id="pfCode" ' + (editing ? "disabled" : "") + ' value="' + UI.esc(project ? project.code : "") + '" placeholder="如 PRJ-2026-01"></div>' +
-      '<div class="form-group"><label class="form-label">项目名称 *</label><input class="input" id="pfName" value="' + UI.esc(project ? project.name : "") + '"></div>' +
-      '<div class="form-group"><label class="form-label">产品线</label><input class="input" id="pfLine" value="' + UI.esc(project ? project.product_line : "") + '"></div>' +
-      '<div class="form-group"><label class="form-label">项目负责人</label><input class="input" id="pfOwner" value="' + UI.esc(project ? project.owner : "待指定") + '"></div>' +
-      '<div class="form-group"><label class="form-label">阶段</label><select class="input" id="pfStage">' + stageLabels.map(function (s) { return '<option ' + (project && project.stage === s ? "selected" : "") + '>' + s + '</option>'; }).join("") + '</select></div>' +
-      '<div class="form-group"><label class="form-label">状态</label><select class="input" id="pfStatus">' + Object.keys(statusLabel).map(function (s) { return '<option value="' + s + '" ' + (project && project.status === s ? "selected" : (!project && s === "normal" ? "selected" : "")) + '>' + statusLabel[s] + '</option>'; }).join("") + '</select></div>' +
-      '<div class="form-group"><label class="form-label">计划开始</label><input class="input" type="date" id="pfStart" value="' + UI.esc(project ? project.planned_start || "" : "") + '"></div>' +
-      '<div class="form-group"><label class="form-label">计划结束</label><input class="input" type="date" id="pfEnd" value="' + UI.esc(project ? project.planned_end || "" : "") + '"></div>' +
-      '<div class="form-group pm-form-full"><label class="form-label">当前进度（0–100）</label><input class="input" type="number" min="0" max="100" id="pfProgress" value="' + (project ? project.progress : 0) + '"></div>' +
-      '<div class="form-group pm-form-full"><label class="form-label">项目说明</label><textarea class="input" rows="3" id="pfDescription">' + UI.esc(project ? project.description || "" : "") + '</textarea></div>' +
-      '</div><p class="muted">本表仅维护门户本地试点数据。</p></div><div class="modal-foot"><button class="btn" id="pfCancel">取消</button><button class="btn btn-primary" id="pfSave">保存项目</button></div></div></div>';
-    host.querySelector("#pfCancel").addEventListener("click", function () { host.innerHTML = ""; });
+      '<div class="form-group"><label class="form-label" for="pfCode">项目编号 <span class="required">*</span></label><input class="input" id="pfCode" ' + (editing ? "disabled" : "") + ' value="' + esc(project ? project.code : "") + '" placeholder="如 PRJ-2026-01" maxlength="32" autocomplete="off"></div>' +
+      '<div class="form-group"><label class="form-label" for="pfName">项目名称 <span class="required">*</span></label><input class="input" id="pfName" value="' + esc(project ? project.name : "") + '" placeholder="输入项目名称" maxlength="160"></div>' +
+      '<div class="form-group"><label class="form-label" for="pfLine">产品线</label><input class="input" id="pfLine" value="' + esc(project ? project.product_line : "") + '" placeholder="如：净水产品 / 智能家电" maxlength="100"></div>' +
+      '<div class="form-group"><label class="form-label" for="pfOwner">项目负责人</label><input class="input" id="pfOwner" value="' + esc(project ? project.owner : "待指定") + '" placeholder="指定责任人" maxlength="80"></div>' +
+      '<div class="form-group"><label class="form-label" for="pfStage">当前阶段</label><select class="input" id="pfStage">' + stageLabels.map(function (item) { return '<option' + (project && project.stage === item ? " selected" : "") + '>' + esc(item) + '</option>'; }).join("") + '</select></div>' +
+      '<div class="form-group"><label class="form-label" for="pfStatus">项目状态</label><select class="input" id="pfStatus">' + Object.keys(statusLabel).map(function (key) { return '<option value="' + key + '"' + (project && project.status === key ? " selected" : (!project && key === "normal" ? " selected" : "")) + '>' + esc(statusLabel[key]) + '</option>'; }).join("") + '</select></div>' +
+      '<div class="form-group"><label class="form-label" for="pfStart">计划开始日期</label><input class="input" type="date" id="pfStart" value="' + esc(project ? project.planned_start || "" : "") + '"></div>' +
+      '<div class="form-group"><label class="form-label" for="pfEnd">计划结束日期</label><input class="input" type="date" id="pfEnd" value="' + esc(project ? project.planned_end || "" : "") + '"></div>' +
+      '<div class="form-group pm-form-full"><div class="pm-progress-field-label"><label class="form-label" for="pfProgress">当前项目进度</label><span>0–100%</span></div><input class="input" type="number" min="0" max="100" step="1" id="pfProgress" value="' + clampProgress(project ? project.progress : 0) + '"></div>' +
+      '<div class="form-group pm-form-full"><label class="form-label" for="pfDescription">项目说明</label><textarea class="input" rows="3" id="pfDescription" maxlength="2000" placeholder="说明项目目标、范围或关键依赖">' + esc(project ? project.description || "" : "") + '</textarea></div>' +
+      '</div><div class="pm-form-footnote"><span>' + UI.icon("database") + '</span><p>当前维护的是门户本地试点数据，不会自动同步到独立项目管理系统。</p></div></div>' +
+      '<footer class="modal-foot"><button type="button" class="btn" data-pm-close>取消</button><button type="button" class="btn btn-primary" id="pfSave">' + (editing ? "保存修改" : "创建项目") + '</button></footer></section></div>';
+    host.innerHTML = modalHtml;
+    bindPmModal(host, "#pfName");
     host.querySelector("#pfSave").addEventListener("click", async function () {
       const name = host.querySelector("#pfName").value.trim();
       const code = host.querySelector("#pfCode").value.trim();
       const start = host.querySelector("#pfStart").value || null;
       const end = host.querySelector("#pfEnd").value || null;
-      if ((!editing && !code) || !name) return UI.toast("请填写项目编号和项目名称", "warn");
-      if (start && end && end < start) return UI.toast("计划结束日期不能早于开始日期", "warn");
-      const payload = { name: name, product_line: host.querySelector("#pfLine").value.trim(),
-        owner: host.querySelector("#pfOwner").value.trim() || "待指定", stage: host.querySelector("#pfStage").value,
-        status: host.querySelector("#pfStatus").value, planned_start: start, planned_end: end,
-        progress: Number(host.querySelector("#pfProgress").value || 0),
-        description: host.querySelector("#pfDescription").value.trim() };
+      const progressValue = host.querySelector("#pfProgress").value;
+      const progress = progressValue === "" ? 0 : Number(progressValue);
+      if (!editing && !/^[A-Za-z0-9][A-Za-z0-9_-]{1,31}$/.test(code)) {
+        return UI.toast("项目编号需为 2–32 位英文字母、数字、下划线或连字符。", "warn");
+      }
+      if (name.length < 2) return UI.toast("项目名称至少需要 2 个字符。", "warn");
+      if (start && end && end < start) return UI.toast("计划结束日期不能早于开始日期。", "warn");
+      if (!Number.isInteger(progress) || progress < 0 || progress > 100) return UI.toast("项目进度请输入 0 到 100 之间的整数。", "warn");
+      const payload = {
+        name: name,
+        product_line: host.querySelector("#pfLine").value.trim(),
+        owner: host.querySelector("#pfOwner").value.trim() || "待指定",
+        stage: host.querySelector("#pfStage").value,
+        status: host.querySelector("#pfStatus").value,
+        planned_start: start,
+        planned_end: end,
+        progress: progress,
+        description: host.querySelector("#pfDescription").value.trim()
+      };
       if (!editing) payload.code = code;
+      const save = host.querySelector("#pfSave");
+      save.disabled = true;
+      save.textContent = editing ? "保存中…" : "创建中…";
       try {
         await (editing ? api.patch("/api/projects/" + project.id, payload) : api.post("/api/projects", payload));
-        host.innerHTML = ""; UI.toast(editing ? "项目已更新" : "项目已创建", "success"); await refresh();
-      } catch (error) { UI.toast(error.message, "error"); }
+        closePmModal(host);
+        UI.toast(editing ? "项目档案已更新" : "项目已创建", "success");
+        await refresh();
+      } catch (error) {
+        UI.toast(error.message, "error");
+      } finally {
+        if (host.querySelector("#pfSave")) {
+          save.disabled = false;
+          save.textContent = editing ? "保存修改" : "创建项目";
+        }
+      }
     });
   }
 
-  function showMilestoneForm(project) {
+  function showMilestoneForm(project, milestone) {
+    const editing = !!milestone;
     const host = document.getElementById("modalHost");
-    host.innerHTML = '<div class="modal-mask"><div class="modal-box"><div class="modal-head">新增 DCP 里程碑</div><div class="modal-body">' +
-      '<p class="muted" style="margin-bottom:16px;">项目：' + UI.esc(project.code + " · " + project.name) + '</p>' +
-      '<div class="form-group"><label class="form-label">DCP 关口</label><select class="input" id="mfGate">' + ["DCP0","DCP1","DCP2","DCP3","DCP4","DCP5"].map(function (g) { return '<option>' + g + '</option>'; }).join("") + '</select></div>' +
-      '<div class="form-group"><label class="form-label">里程碑名称 *</label><input class="input" id="mfTitle" placeholder="例如：样机验证评审"></div>' +
-      '<div class="form-group"><label class="form-label">计划日期 *</label><input class="input" type="date" id="mfDate" required></div>' +
-      '<div class="form-group"><label class="form-label">负责人</label><input class="input" id="mfOwner" value="待指定"></div>' +
-      '<div class="form-group"><label class="form-label">评审备注</label><textarea class="input" rows="3" id="mfNotes"></textarea></div></div>' +
-      '<div class="modal-foot"><button class="btn" id="mfCancel">取消</button><button class="btn btn-primary" id="mfSave">保存节点</button></div></div></div>';
-    host.querySelector("#mfCancel").addEventListener("click", function () { host.innerHTML = ""; });
+    const gates = ["DCP0","DCP1","DCP2","DCP3","DCP4","DCP5"];
+    host.innerHTML = '<div class="modal-mask pm-modal-backdrop"><section class="modal-box pm-form-modal" role="dialog" aria-modal="true" aria-labelledby="pmGateFormTitle">' +
+      '<header class="pm-form-head"><div><span class="pm-section-kicker">DCP / GATE CONTROL</span><h2 id="pmGateFormTitle">' + (editing ? "编辑 DCP 关口" : "新增 DCP 里程碑") + '</h2><p>维护该项目的关口名称、计划日期、责任人与评审备注。</p></div><button type="button" class="pm-icon-button" data-pm-close aria-label="关闭">×</button></header>' +
+      '<div class="modal-body"><div class="pm-linked-project"><span class="pm-linked-project-code">' + esc(project.code) + '</span><strong>' + esc(project.name) + '</strong><span>' + esc(project.stage) + '阶段</span></div>' +
+      '<div class="pm-form-grid"><div class="form-group"><label class="form-label" for="mfGate">DCP 关口</label><select class="input" id="mfGate">' + gates.map(function (gate) { return '<option value="' + gate + '"' + (milestone && milestone.gate === gate ? " selected" : "") + '>' + gate + '</option>'; }).join("") + '</select></div>' +
+      '<div class="form-group"><label class="form-label" for="mfTitle">里程碑名称 <span class="required">*</span></label><input class="input" id="mfTitle" maxlength="160" placeholder="例如：样机验证评审" value="' + esc(milestone ? milestone.title : "") + '"></div>' +
+      '<div class="form-group"><label class="form-label" for="mfDate">计划日期 <span class="required">*</span></label><input class="input" type="date" id="mfDate" required value="' + esc(milestone ? milestone.planned_date : "") + '"></div>' +
+      '<div class="form-group"><label class="form-label" for="mfOwner">关口负责人</label><input class="input" id="mfOwner" value="' + esc(milestone ? milestone.owner : "待指定") + '" maxlength="80"></div>' +
+      '<div class="form-group pm-form-full"><label class="form-label" for="mfNotes">评审备注 / 通过条件</label><textarea class="input" rows="3" id="mfNotes" maxlength="2000" placeholder="补充评审条件、交付物或需要确认的事项">' + esc(milestone ? milestone.notes : "") + '</textarea></div></div>' +
+      '<div class="pm-form-footnote"><span>' + UI.icon("shield-check") + '</span><p>标记为“已通过”时，系统会记录实际完成日期；当前配置的 DCP 顺序策略可能要求先通过前置关口。</p></div></div>' +
+      '<footer class="modal-foot"><button type="button" class="btn" data-pm-close>取消</button><button type="button" class="btn btn-primary" id="mfSave">' + (editing ? "保存关口" : "创建关口") + '</button></footer></section></div>';
+    bindPmModal(host, "#mfTitle");
     host.querySelector("#mfSave").addEventListener("click", async function () {
-      const titleText = host.querySelector("#mfTitle").value.trim(), dateText = host.querySelector("#mfDate").value;
-      if (!titleText || !dateText) return UI.toast("请填写里程碑名称和计划日期", "warn");
+      const titleText = host.querySelector("#mfTitle").value.trim();
+      const dateText = host.querySelector("#mfDate").value;
+      if (titleText.length < 2 || !dateText) return UI.toast("请填写至少 2 个字符的里程碑名称和计划日期。", "warn");
+      const payload = {
+        gate: host.querySelector("#mfGate").value,
+        title: titleText,
+        planned_date: dateText,
+        owner: host.querySelector("#mfOwner").value.trim() || "待指定",
+        notes: host.querySelector("#mfNotes").value.trim()
+      };
+      const save = host.querySelector("#mfSave");
+      save.disabled = true;
+      save.textContent = "保存中…";
       try {
-        await api.post("/api/projects/" + project.id + "/milestones", {
-          gate: host.querySelector("#mfGate").value, title: titleText, planned_date: dateText,
-          owner: host.querySelector("#mfOwner").value.trim() || "待指定", notes: host.querySelector("#mfNotes").value.trim()
-        });
-        host.innerHTML = ""; UI.toast("DCP 节点已添加", "success"); state.tab = "gates"; await refresh();
-      } catch (error) { UI.toast(error.message, "error"); }
+        await (editing ? api.patch("/api/projects/milestones/" + milestone.id, payload) : api.post("/api/projects/" + project.id + "/milestones", payload));
+        closePmModal(host);
+        UI.toast(editing ? "DCP 关口已更新" : "DCP 里程碑已创建", "success");
+        state.tab = "gates";
+        await refresh();
+      } catch (error) {
+        UI.toast(error.message, "error");
+      } finally {
+        if (host.querySelector("#mfSave")) {
+          save.disabled = false;
+          save.textContent = editing ? "保存关口" : "创建关口";
+        }
+      }
     });
   }
 
   function showRiskForm(project) {
     const host = document.getElementById("modalHost");
-    host.innerHTML = '<div class="modal-mask"><div class="modal-box"><div class="modal-head">登记项目风险</div><div class="modal-body">' +
-      '<p class="muted" style="margin-bottom:16px;">项目：' + UI.esc(project.code + " · " + project.name) + '</p>' +
-      '<div class="form-group"><label class="form-label">风险事项 *</label><input class="input" id="rfTitle" placeholder="描述可能影响交付的风险"></div>' +
-      '<div class="form-group"><label class="form-label">风险等级</label><select class="input" id="rfLevel"><option value="high">高</option><option value="medium" selected>中</option><option value="low">低</option></select></div>' +
-      '<div class="form-group"><label class="form-label">责任人</label><input class="input" id="rfOwner" value="待指定"></div>' +
-      '<div class="form-group"><label class="form-label">跟进截止日</label><input class="input" type="date" id="rfDate"></div>' +
-      '<div class="form-group"><label class="form-label">应对措施</label><textarea class="input" rows="3" id="rfMitigation" placeholder="写清缓解措施、依赖和下一步"></textarea></div></div>' +
-      '<div class="modal-foot"><button class="btn" id="rfCancel">取消</button><button class="btn btn-primary" id="rfSave">保存风险</button></div></div></div>';
-    host.querySelector("#rfCancel").addEventListener("click", function () { host.innerHTML = ""; });
+    host.innerHTML = '<div class="modal-mask pm-modal-backdrop"><section class="modal-box pm-form-modal" role="dialog" aria-modal="true" aria-labelledby="pmRiskFormTitle">' +
+      '<header class="pm-form-head"><div><span class="pm-section-kicker">RISK / MITIGATION</span><h2 id="pmRiskFormTitle">登记项目风险</h2><p>请明确风险等级、责任人与截止日期，避免仅留下问题描述而没有下一步措施。</p></div><button type="button" class="pm-icon-button" data-pm-close aria-label="关闭">×</button></header>' +
+      '<div class="modal-body"><div class="pm-linked-project"><span class="pm-linked-project-code">' + esc(project.code) + '</span><strong>' + esc(project.name) + '</strong><span>' + esc(project.stage) + '阶段</span></div>' +
+      '<div class="form-group"><label class="form-label" for="rfTitle">风险事项 <span class="required">*</span></label><input class="input" id="rfTitle" maxlength="240" placeholder="描述可能影响交付、质量或成本的风险"></div>' +
+      '<div class="pm-form-grid"><div class="form-group"><label class="form-label" for="rfLevel">风险等级</label><select class="input" id="rfLevel"><option value="high">高风险</option><option value="medium" selected>中风险</option><option value="low">低风险</option></select></div>' +
+      '<div class="form-group"><label class="form-label" for="rfOwner">责任人</label><input class="input" id="rfOwner" value="待指定" maxlength="80" placeholder="明确跟进责任人"></div>' +
+      '<div class="form-group"><label class="form-label" for="rfDate">跟进截止日期</label><input class="input" type="date" id="rfDate"></div>' +
+      '<div class="form-group pm-form-full"><label class="form-label" for="rfMitigation">应对措施 / 下一步动作</label><textarea class="input" rows="4" id="rfMitigation" maxlength="3000" placeholder="写清缓解措施、依赖条件、下一步动作与完成标准"></textarea></div></div>' +
+      '<div class="pm-form-footnote"><span>' + UI.icon("target") + '</span><p>风险创建后进入“待处理”状态，可进一步转入跟进中，或在确认解决后关闭。</p></div></div>' +
+      '<footer class="modal-foot"><button type="button" class="btn" data-pm-close>取消</button><button type="button" class="btn btn-primary" id="rfSave">保存风险</button></footer></section></div>';
+    bindPmModal(host, "#rfTitle");
     host.querySelector("#rfSave").addEventListener("click", async function () {
       const titleText = host.querySelector("#rfTitle").value.trim();
-      if (!titleText) return UI.toast("请填写风险事项", "warn");
+      if (titleText.length < 2) return UI.toast("风险事项至少需要 2 个字符。", "warn");
+      const payload = {
+        title: titleText,
+        level: host.querySelector("#rfLevel").value,
+        owner: host.querySelector("#rfOwner").value.trim() || "待指定",
+        due_date: host.querySelector("#rfDate").value || null,
+        mitigation: host.querySelector("#rfMitigation").value.trim()
+      };
+      const save = host.querySelector("#rfSave");
+      save.disabled = true;
+      save.textContent = "保存中…";
       try {
-        await api.post("/api/projects/" + project.id + "/risks", {
-          title: titleText, level: host.querySelector("#rfLevel").value,
-          owner: host.querySelector("#rfOwner").value.trim() || "待指定",
-          due_date: host.querySelector("#rfDate").value || null,
-          mitigation: host.querySelector("#rfMitigation").value.trim()
-        });
-        host.innerHTML = ""; UI.toast("风险已登记", "success"); state.tab = "risks"; await refresh();
-      } catch (error) { UI.toast(error.message, "error"); }
+        await api.post("/api/projects/" + project.id + "/risks", payload);
+        closePmModal(host);
+        UI.toast("风险已登记", "success");
+        state.tab = "risks";
+        await refresh();
+      } catch (error) {
+        UI.toast(error.message, "error");
+      } finally {
+        if (host.querySelector("#rfSave")) {
+          save.disabled = false;
+          save.textContent = "保存风险";
+        }
+      }
     });
   }
 
