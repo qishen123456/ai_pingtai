@@ -55,16 +55,35 @@ class ProblemRecord(Base):
     status: Mapped[str] = mapped_column(String(20), default=REC_IMPORTED, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
-def make_row_hash(sheet_name: str, excel_row: int, values: dict) -> str:
-    """Stable content fingerprint, independent of filename, worksheet and row position."""
+def make_row_hash(
+    sheet_name: str,
+    excel_row: int,
+    values: dict,
+    *,
+    batch_id: Optional[int] = None,
+    mode: Optional[str] = None,
+) -> str:
+    """Build an approved-policy fingerprint.
+
+    content mode deduplicates identical full business payloads across sheets/batches.
+    row_instance mode preserves identical incidents by including batch and Excel row identity.
+    """
+    from .config import IMPORT_DEDUPE_POLICY
+
+    policy = (mode or IMPORT_DEDUPE_POLICY or "content").strip().lower()
+    if policy not in {"content", "row_instance"}:
+        # Local pilot fallback only. Production startup rejects an unapproved policy.
+        policy = "content"
     normalized = {
         str(key): (str(value).strip() if value is not None else "")
         for key, value in (values or {}).items()
     }
-    # Keep every business field in the fingerprint so a legitimately revised issue is not
-    # silently collapsed just because description/owner/model happened to stay the same.
-    key = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    payload = {"values": normalized}
+    if policy == "row_instance":
+        payload.update({"batch_id": batch_id, "sheet_name": sheet_name or "", "excel_row": int(excel_row)})
+    key = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
+
 
 def batch_to_dict(batch: ImportBatch) -> dict:
     return {
