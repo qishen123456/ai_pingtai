@@ -198,3 +198,27 @@ class StandardBomRun(Base):
     input_json: Mapped[list] = mapped_column(JSON, default=list)
     result_json: Mapped[list] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+
+
+class AuditEvent(Base):
+    """Security and change audit trail; payload values are intentionally not stored."""
+    __tablename__ = "audit_events"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(32), index=True)
+    actor: Mapped[str] = mapped_column(String(160), index=True)
+    roles_json: Mapped[list] = mapped_column(JSON, default=list)
+    method: Mapped[str] = mapped_column(String(12))
+    path: Mapped[str] = mapped_column(String(512), index=True)
+    status_code: Mapped[int] = mapped_column(Integer)
+    source_ip: Mapped[str] = mapped_column(String(64), default="")
+    user_agent: Mapped[str] = mapped_column(String(500), default="")
+    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "request_id": self.request_id, "actor": self.actor,
+            "roles": self.roles_json or [], "method": self.method, "path": self.path,
+            "status_code": self.status_code, "source_ip": self.source_ip,
+            "user_agent": self.user_agent,
+            "occurred_at": self.occurred_at.strftime("%Y-%m-%d %H:%M:%S"),
+        }
