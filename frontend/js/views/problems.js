@@ -255,7 +255,13 @@ window.Views.problems = (function () {
     const rows = p.rows || [];
     const errorCount = rows.filter((r) => rowIssues(r).some((i) => i.level === "error") && !r.excluded).length;
 
+    const truncationWarning = p.truncated
+      ? '<div class="notice notice-warning" role="alert" style="margin:12px 0;padding:14px 16px;border:1px solid var(--warning,#d97706);border-radius:10px;background:var(--warning-bg,#fff7ed);color:var(--text-1);">' +
+        '<strong>已达到预览行数上限，禁止确认导入</strong><div style="margin-top:6px;">' + UI.esc(p.truncation_warning || "当前工作表可能只读取了部分行。请拆分 Excel 后重新上传，不能把部分数据当作全量导入。") + '</div></div>'
+      : "";
+
     body.innerHTML = stepsHtml +
+      truncationWarning +
       '<div class="card" style="margin-bottom:18px;"><div class="card-title">① 选择 Excel 工作表</div>' + sheetsHtml + "</div>" +
       '<div class="card" style="margin-bottom:18px;"><div class="card-title">② 字段映射表（智能解析结果）' +
       (pendingCols.length ? ' <span class="badge badge-amber">' + pendingCols.length + " 列待确认</span>" : "") +
@@ -301,7 +307,13 @@ window.Views.problems = (function () {
       state.batchId = null; state.sheets = []; state.preview = null; state.lastResult = null;
       renderImport(body);
     });
-    body.querySelector("#confirmBtn").addEventListener("click", () => doConfirm(body, rows));
+    const confirmButton = body.querySelector("#confirmBtn");
+    if (confirmButton && p.truncated) {
+      confirmButton.disabled = true;
+      confirmButton.title = "工作表超过预览上限，请拆分文件后重新上传";
+      confirmButton.textContent = "已超预览上限，禁止导入";
+    }
+    if (confirmButton && !p.truncated) confirmButton.addEventListener("click", () => doConfirm(body, rows));
   }
 
   function renderPreviewTable(rows, fields) {
