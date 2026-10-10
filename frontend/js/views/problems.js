@@ -456,7 +456,7 @@ window.Views.problems = (function () {
     body.innerHTML =
       '<div class="steps">' + step(1, "上传 Excel", "done") + line() + step(2, "字段映射", "done") + line() +
       step(3, "预览修正", "done") + line() + step(4, "确认入库", "done") + "</div>" +
-      '<div class="card"><div class="card-title">导入处理完成（批次 #' + r.batch_id + "）</div>" +
+      '<div class="card"><div class="card-title">导入处理完成（批次 <code class="batch-id">#' + r.batch_id + '</code>）</div>' +
       '<div class="result-cards">' +
       '<div class="result-card ok"><div class="num">' + r.imported + '</div><div class="lab">成功写入台账</div></div>' +
       '<div class="result-card fail"><div class="num">' + r.failed + '</div><div class="lab">规则拦截未写入</div></div>' +
