@@ -659,3 +659,6 @@ code {
     transition: none !important;
   }
 }
+
+/* Numeric result counters align like technical output; ordinary prose keeps the UI font. */
+.result-card .num { font-family: var(--font-mono); letter-spacing: -.035em; }
