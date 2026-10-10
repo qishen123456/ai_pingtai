@@ -42,6 +42,10 @@ def validate_production_configuration() -> None:
             errors.append("AUTH_%s_GROUPS must contain actual IdP group names" % role.upper())
     if config.RECOGNIZER_ENGINE != "rule":
         errors.append("Only the implemented rule recognizer may be enabled until the real model adapter is approved")
+    if config.DCP_GATE_POLICY not in {"sequential", "independent"}:
+        errors.append("DCP_GATE_POLICY must be explicitly approved as sequential or independent")
+    if not config.BOM_POLICY_VERSION or config.BOM_POLICY_VERSION.strip().lower() in {"unconfigured", "placeholder", "__set_me__"}:
+        errors.append("BOM_POLICY_VERSION must identify a business-approved, versioned engineering rule set")
     if not config.AUTH_USER_HEADER or not config.AUTH_GROUPS_HEADER:
         errors.append("identity and groups header names must be configured")
     if errors:
