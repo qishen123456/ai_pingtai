@@ -24,6 +24,7 @@
 | AUTH_ADMIN_GROUPS、AUTH_QUALITY_GROUPS、AUTH_PM_GROUPS、AUTH_ENGINEERING_GROUPS、AUTH_VIEWER_GROUPS 对应真实 IdP 组名 | 各系统 owner/IT | 生产应用拒绝启动 |
 | PostgreSQL 主机、数据库、最小权限账号、DB_PASSWORD、TLS 要求 | DBA | 不能启动生产模式 |
 | DCP_GATE_POLICY（sequential 或 independent） | PMO/DCP 负责人 | 生产应用拒绝启动 |
+| IMPORT_DEDUPE_POLICY（content 或 row_instance） | 质量数据负责人 | 生产应用拒绝启动；须确认相同内容是重复问题还是独立事件 |
 | BOM_POLICY_VERSION、规则文档、替代料批准条件、规格匹配阈值 | 工程/标准化负责人 | 不能用于正式 BOM 放行 |
 | QMS / PLM / problem-hub / pm-platform 的测试与生产地址、API 文档、服务账号、字段映射、限流、幂等键 | 各系统 owner | 只显示“待接入”，不伪装已连接 |
 | 模型网关、模型名、密钥、超时/重试/限流/脱敏/保留规则 | AI 平台与安全团队 | 保持规则引擎；不启用模型功能 |
@@ -39,7 +40,7 @@
 3. 确认 IdP 返回 groups claim，并验证 Nginx 会覆盖客户端传入的 X-Auth-Request-*。只允许 Nginx 访问应用，禁止直接暴露应用和数据库端口。
 4. 备份旧数据；由 DBA 确认生产库、网络和 TLS 策略。演练迁移：docker compose -f docker-compose.production.yml run --rm migrate。
 5. 测试环境先启动并验证：docker compose -f docker-compose.production.yml up -d db migrate app auth-proxy nginx。验证登录、角色权限、健康检查和外部系统状态页。
-6. 执行 scripts/backup_database.sh；再在隔离环境做完整恢复演练并记录恢复时间。归档列表检查成功并不等于已证明可恢复。
+6. 执行 bash scripts/backup_database.sh；再在隔离环境做完整恢复演练并记录恢复时间。归档列表检查成功并不等于已证明可恢复。
 7. 配置日志收集、告警、磁盘/DB 容量监控、证书续期、漏洞扫描、备份告警与回滚责任人。
 
 配置模板不会自动创建企业身份应用、TLS 证书、防火墙规则或数据库凭证。
