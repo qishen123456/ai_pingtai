@@ -119,4 +119,4 @@ workbench/
 
 **当前仍是待验收版本，不等于生产已上线。** 企业 IdP/组名、域名与证书、DB 凭证、RPO/RTO、真实 QMS/PLM/PM API、模型网关、DCP/BOM/去重业务规则必须由责任人提供并验证；项目级数据权限、真正的跨系统适配器、恢复演练、压测和渗透测试仍未完成。
 
-详细的占位参数、部署步骤与发布前检查见 [`docs/PRODUCTIONIZATION.md`](docs/PRODUCTIONIZATION.md)。同时参考 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 与 [`docs/RELEASE_NOTES_V0.2.md`](docs/RELEASE_NOTES_V0.2.md)。
+详细的占位参数、部署步骤与发布前检查见 [`docs/PRODUCTIONIZATION.md`](docs/PRODUCTIONIZATION.md)。 各外部系统的接入契约、数据主权、幂等/重试与验收样本模板见 [`docs/INTEGRATION_CONTRACT_TEMPLATE.md`](docs/INTEGRATION_CONTRACT_TEMPLATE.md)。同时参考 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) 与 [`docs/RELEASE_NOTES_V0.2.md`](docs/RELEASE_NOTES_V0.2.md)。
