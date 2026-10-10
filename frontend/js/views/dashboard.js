@@ -26,7 +26,8 @@ window.Views.dashboard = {
       const phase = app.status === 'active' ? '可用入口' : app.status === 'planned' ? '建设准备' : '草稿待审核';
       const action = app.entry_url ? '打开系统' : ['problems', 'projects', 'standardization'].includes(app.route_path) ? '进入试点' : '查看条件';
       const destination = ['problems', 'projects', 'standardization'].includes(app.route_path) ? app.route_path : 'app_center';
-      return '<article class="mission-card mission-' + (index % 4) + '" role="link" tabindex="0" aria-label="打开' + UI.esc(app.name) + '" data-go="' + destination + '">' +
+      const externalAttr = app.entry_url ? ' data-external-url="' + UI.esc(app.entry_url) + '"' : '';
+      return '<article class="mission-card mission-' + (index % 4) + '" role="link" tabindex="0" aria-label="' + UI.esc(action + '：' + app.name) + '" data-go="' + UI.esc(destination) + '"' + externalAttr + '>' +
         '<div class="mission-topline"><span class="mission-index">0' + (index + 1) + '</span><span class="mission-state ' + UI.esc(app.status) + '"><i></i>' + phase + '</span></div>' +
         '<div class="mission-icon">' + UI.icon(app.icon) + '</div><h3>' + UI.esc(app.name) + '</h3><p>' + UI.esc(app.description) + '</p>' +
         '<div class="mission-meta"><span>' + UI.esc(app.category) + '</span><span>' + UI.esc(app.owner) + '</span></div>' +
@@ -50,12 +51,16 @@ window.Views.dashboard = {
 
     el.querySelector('#goAppCenter').addEventListener('click', () => Router.go('app_center'));
     el.querySelector('#goImport').addEventListener('click', () => Router.go('problems', 'import'));
-    el.querySelectorAll('[data-go]').forEach((node) => node.addEventListener('click', () => Router.go(node.dataset.go)));
+    el.querySelectorAll('[data-go]').forEach((node) => node.addEventListener('click', () => {
+      if (node.dataset.externalUrl) window.open(node.dataset.externalUrl, '_blank', 'noopener');
+      else Router.go(node.dataset.go);
+    }));
     el.querySelectorAll('.mission-card[role="link"]').forEach((node) => {
       node.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
           event.preventDefault();
-          Router.go(node.dataset.go);
+          if (node.dataset.externalUrl) window.open(node.dataset.externalUrl, '_blank', 'noopener');
+          else Router.go(node.dataset.go);
         }
       });
     });
