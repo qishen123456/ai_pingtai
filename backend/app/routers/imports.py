@@ -86,12 +86,16 @@ def _stored_path(batch: ImportBatch) -> str:
 def _resolve_stored_path(value: str) -> Path:
     if not value:
         raise FileNotFoundError("stored upload path missing")
-    resolved = Path(value).resolve(strict=True)
+    candidate = Path(value)
+    # Check the unresolved directory entry: resolve() follows symlinks and would hide them.
+    if candidate.is_symlink():
+        raise ValueError("stored upload must not be a symlink")
+    resolved = candidate.resolve(strict=True)
     try:
         resolved.relative_to(UPLOAD_DIR.resolve())
     except ValueError as exc:
         raise ValueError("stored upload escaped upload directory") from exc
-    if not resolved.is_file() or resolved.is_symlink():
+    if not resolved.is_file():
         raise ValueError("stored upload is not a regular file")
     return resolved
 
