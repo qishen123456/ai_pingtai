@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from datetime import datetime
 from typing import Optional
 
@@ -55,12 +56,14 @@ class ProblemRecord(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
 
 def make_row_hash(sheet_name: str, excel_row: int, values: dict) -> str:
-    key = "|".join([
-        sheet_name or "", str(excel_row),
-        str(values.get("description") or "").strip(),
-        str(values.get("owner") or "").strip(),
-        str(values.get("model") or "").strip(),
-    ])
+    """Stable content fingerprint, independent of filename, worksheet and row position."""
+    normalized = {
+        str(key): (str(value).strip() if value is not None else "")
+        for key, value in (values or {}).items()
+    }
+    # Keep every business field in the fingerprint so a legitimately revised issue is not
+    # silently collapsed just because description/owner/model happened to stay the same.
+    key = json.dumps(normalized, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 def batch_to_dict(batch: ImportBatch) -> dict:
