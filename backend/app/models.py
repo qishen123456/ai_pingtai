@@ -148,6 +148,7 @@ class PMProject(Base):
 
 class PMProjectMilestone(Base):
     __tablename__ = "pm_project_milestones"
+    __table_args__ = (UniqueConstraint("project_id", "gate", name="uq_pm_project_gate"),)
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("pm_projects.id"), index=True)
     gate: Mapped[str] = mapped_column(String(12), index=True)
