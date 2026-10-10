@@ -44,7 +44,7 @@
 6. 先为备份目录创建权限受控的宿主机持久化目录（容器备份进程 UID/GID 为 10001；例如创建目录后执行 sudo chown 10001:10001 ./backups 并设置 700 权限）。在 Compose 的 ops profile 下运行备份任务：docker compose -f docker-compose.production.yml --profile ops run --rm backup。它会一起备份 PostgreSQL 和上传文件目录；再在隔离环境做完整恢复演练并记录恢复时间。归档列表检查成功并不等于已证明可恢复。
 7. 配置日志收集、告警、磁盘/DB 容量监控、证书续期、漏洞扫描、备份告警与回滚责任人。
 
-配置模板不会自动创建企业身份应用、TLS 证书、防火墙规则或数据库凭证。 PostgreSQL 初始化脚本 deploy/postgres-init/01-backup-role.sh 仅在空数据卷首次创建数据库时自动执行；如果数据库卷已存在，请由 DBA 手动执行 docker compose -f docker-compose.production.yml exec -T db bash /docker-entrypoint-initdb.d/01-backup-role.sh，核对备份角色权限后再启用备份任务。
+每次启动生产栈时，preflight 会先检查必填值、密码强度、占位域名/密钥、角色组和业务策略；预检失败会阻止数据库和认证代理启动。它只校验配置形态，不会验证 IdP 是否真实可登录或业务规则是否已签字。配置模板不会自动创建企业身份应用、TLS 证书、防火墙规则或数据库凭证。 PostgreSQL 初始化脚本 deploy/postgres-init/01-backup-role.sh 仅在空数据卷首次创建数据库时自动执行；如果数据库卷已存在，请先用当前安全配置执行 docker compose -f docker-compose.production.yml up -d db（会按配置重建容器但保留数据卷），再由 DBA 手动执行 docker compose -f docker-compose.production.yml exec -T db bash /docker-entrypoint-initdb.d/01-backup-role.sh，核对备份角色权限后再启用备份任务。
 
 ## 4. 备份、恢复与发布要求
 
