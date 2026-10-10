@@ -62,6 +62,8 @@ def validate_production_configuration() -> None:
         errors.append("DCP_GATE_POLICY must be explicitly approved as sequential or independent")
     if not config.BOM_POLICY_VERSION or config.BOM_POLICY_VERSION.strip().lower() in {"unconfigured", "placeholder", "__set_me__"}:
         errors.append("BOM_POLICY_VERSION must identify a business-approved, versioned engineering rule set")
+    if config.IMPORT_DEDUPE_POLICY not in {"content", "row_instance"}:
+        errors.append("IMPORT_DEDUPE_POLICY must be approved as content or row_instance")
     if not config.AUTH_USER_HEADER or not config.AUTH_GROUPS_HEADER:
         errors.append("identity and groups header names must be configured")
     if errors:
