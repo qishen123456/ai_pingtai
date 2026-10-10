@@ -38,6 +38,7 @@
 1. 复制 .env.example 为受控部署配置并填写必填项；真实凭证只放安全的部署环境中。
 2. 填写 OIDC_ISSUER_URL、OIDC_CLIENT_ID、OIDC_CLIENT_SECRET、OIDC_EMAIL_DOMAINS、OAUTH2_PROXY_COOKIE_SECRET、OAUTH2_PROXY_IMAGE、SERVER_NAME 和 TLS 证书。
 3. 确认 IdP 返回 groups claim，并验证 Nginx 会覆盖客户端传入的 X-Auth-Request-*。只允许 Nginx 访问应用，禁止直接暴露应用和数据库端口。
+   同时手动将 `deploy/nginx.conf` 中的 `server_name workbench.example.invalid` 替换为真实域名，并把匹配该域名的证书放到 `deploy/tls/fullchain.pem` 和 `deploy/tls/privkey.pem`；当前只是路径占位，不包含企业证书签发/续期配置。
 4. 备份旧数据；由 DBA 确认生产库、网络和 TLS 策略。演练迁移：docker compose -f docker-compose.production.yml run --rm migrate。
 5. 测试环境先启动并验证：docker compose -f docker-compose.production.yml up -d db migrate app auth-proxy nginx。验证登录、角色权限、健康检查和外部系统状态页。
 6. 执行 bash scripts/backup_database.sh；再在隔离环境做完整恢复演练并记录恢复时间。归档列表检查成功并不等于已证明可恢复。
