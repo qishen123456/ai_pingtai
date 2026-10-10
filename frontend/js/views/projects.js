@@ -2,7 +2,7 @@
 window.Views = window.Views || {};
 window.Views.projects = (function () {
   const title = "AI + 项目管理";
-  const state = { el: null, tab: "portfolio", projects: [], summary: null, gateProject: "", gateFilter: "all", riskFilter: "active", riskLevel: "all", riskQuery: "" };
+  const state = { el: null, tab: "portfolio", projects: [], summary: null, portfolioQuery: "", portfolioStage: "", portfolioStatus: "", gateProject: "", gateFilter: "all", riskFilter: "active", riskLevel: "all", riskQuery: "" };
   const stageLabels = ["预研", "立项", "开发", "验证", "试产", "量产"];
   const statusLabel = { normal: "正常", at_risk: "有风险", blocked: "阻塞", completed: "已完成" };
   const statusClass = { normal: "good", at_risk: "warning", blocked: "danger", completed: "muted" };
@@ -163,9 +163,9 @@ window.Views.projects = (function () {
 
   function renderPortfolio() {
     const panel = state.el.querySelector("#pmPanel");
-    const stage = panel.querySelector("#pmStageFilter") ? panel.querySelector("#pmStageFilter").value : "";
-    const status = panel.querySelector("#pmStatusFilter") ? panel.querySelector("#pmStatusFilter").value : "";
-    const query = panel.querySelector("#pmSearch") ? panel.querySelector("#pmSearch").value.trim().toLowerCase() : "";
+    const stage = state.portfolioStage;
+    const status = state.portfolioStatus;
+    const query = state.portfolioQuery.trim().toLowerCase();
     const filtered = state.projects.filter(function (project) {
       return (!stage || project.stage === stage) && (!status || project.status === status) &&
         (!query || [project.code, project.name, project.owner, project.product_line].join(" ").toLowerCase().includes(query));
@@ -219,18 +219,27 @@ window.Views.projects = (function () {
         '</div></section>' +
       '<section class="pm-project-grid" aria-label="项目列表">' + cards + '</section>';
 
-    panel.querySelector("#pmApplyFilter").addEventListener("click", renderPortfolio);
-    panel.querySelector("#pmSearch").addEventListener("keydown", function (event) { if (event.key === "Enter") renderPortfolio(); });
+    panel.querySelector("#pmApplyFilter").addEventListener("click", function () {
+      state.portfolioQuery = panel.querySelector("#pmSearch").value;
+      state.portfolioStage = panel.querySelector("#pmStageFilter").value;
+      state.portfolioStatus = panel.querySelector("#pmStatusFilter").value;
+      renderPortfolio();
+    });
+    panel.querySelector("#pmSearch").addEventListener("keydown", function (event) {
+      if (event.key === "Enter") {
+        state.portfolioQuery = panel.querySelector("#pmSearch").value;
+        state.portfolioStage = panel.querySelector("#pmStageFilter").value;
+        state.portfolioStatus = panel.querySelector("#pmStatusFilter").value;
+        renderPortfolio();
+      }
+    });
     const emptyAdd = panel.querySelector("#pmEmptyAdd");
     if (emptyAdd) emptyAdd.addEventListener("click", function () { showProjectForm(); });
     const reset = panel.querySelector("#pmResetFilter") || panel.querySelector("#pmClearFilter");
     if (reset) reset.addEventListener("click", function () {
-      const search = panel.querySelector("#pmSearch");
-      if (search) search.value = "";
-      const stageSelect = panel.querySelector("#pmStageFilter");
-      const statusSelect = panel.querySelector("#pmStatusFilter");
-      if (stageSelect) stageSelect.value = "";
-      if (statusSelect) statusSelect.value = "";
+      state.portfolioQuery = "";
+      state.portfolioStage = "";
+      state.portfolioStatus = "";
       renderPortfolio();
     });
     panel.querySelectorAll("[data-project-detail]").forEach(function (button) {
