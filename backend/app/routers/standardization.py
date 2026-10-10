@@ -9,6 +9,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
+from ..config import BOM_POLICY_VERSION
 from ..db import get_db
 from ..models import StandardBomRun, StandardPart
 
@@ -190,7 +191,8 @@ def search_similar(payload: SimilarityRequest, db: Session = Depends(get_db)):
     scored.sort(key=lambda item: (item["similarity"], item["is_preferred"], item["part_no"]), reverse=True)
     return {"query": payload.query, "items": scored[:payload.limit],
             "method": "deterministic_text_similarity",
-            "policy_version": "candidate-discovery-only",
+            "policy_version": BOM_POLICY_VERSION,
+            "policy_status": "unapproved_local_candidate_rules",
             "release_ready": False,
             "notice": "结果由本地文本相似度规则生成，不是大模型结论；替代物料只是排查候选，不能自动替换或放行，须按已批准工程规则复核。"}
 
@@ -244,7 +246,7 @@ def check_bom(payload: BomCheckRequest, db: Session = Depends(get_db)):
     db.refresh(run)
     return {**_run_dict(run), "results": results, "source": "local_pilot",
             "notice": "本次校验仅使用当前门户的本地物料档案；未连接 PLM，不能作为正式量产放行结论。",
-            "policy_version": "candidate-local-rules-only", "release_ready": False}
+            "policy_version": BOM_POLICY_VERSION, "policy_status": "unapproved_local_candidate_rules", "release_ready": False}
 
 
 @router.get("/bom/runs")
