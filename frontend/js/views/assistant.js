@@ -248,7 +248,7 @@ window.Views.assistant = (function () {
         '<p>共享提问入口、对话体验与身份规则；问题经验、项目管理、标准化与质量数据继续由各自业务系统维护，不把所有系统合并成一个数据库。</p>' +
         '<div class="assistant-hero-tags"><span><i></i>统一入口</span><span>独立业务系统</span><span>回答需有来源依据</span></div></div>' +
         '<aside class="assistant-hero-status"><span class="assistant-status-icon">' + UI.icon("sparkles") + '</span><small>RUNTIME STATUS</small><strong>' + esc(modelText) + '</strong><p>当前为入口分流预览，不会生成未经验证的业务结论。</p></aside></header>' +
-      '<div class="assistant-layout"><section class="assistant-chat-panel"><header class="assistant-chat-head"><div class="assistant-chat-avatar">' + UI.icon("sparkles") + '</div><div><h3>研发 AI 助手</h3><p>提问入口 · 本次页面会话</p></div><span class="assistant-mode-pill">分流预览</span></header>' +
+      '<div class="assistant-layout"><section class="assistant-chat-panel"><header class="assistant-chat-head"><div class="assistant-chat-avatar">' + UI.icon("sparkles") + '</div><div><h3>研发 AI 助手</h3><p>提问入口 · 本次页面会话</p></div><button type="button" class="assistant-new-session" id="assistantNewSession">' + UI.icon("plus") + ' 新建会话</button><span class="assistant-mode-pill">分流预览</span></header>' +
         '<div class="assistant-conversation" id="assistantConversation" aria-live="polite"></div>' +
         '<form class="assistant-composer" id="assistantForm"><div class="assistant-composer-meta"><label for="assistantScope">问题范围</label><select class="input" id="assistantScope"><option value="auto">自动判断业务域</option><option value="quality">质量决策助手</option><option value="projects">项目管理</option><option value="standardization">标准化与优选件</option><option value="problems">问题经验</option></select><span>Enter 发送 · Shift + Enter 换行</span></div>' +
           '<textarea id="assistantInput" rows="3" maxlength="2000" placeholder="例如：帮我汇总某机型本月质量问题、整改状态和项目 DCP 遗留事项…"></textarea>' +
@@ -257,6 +257,15 @@ window.Views.assistant = (function () {
       '</section><aside class="assistant-side"><section class="assistant-side-panel"><header><span class="assistant-side-kicker">BUSINESS WORKSPACES</span><h3>独立业务入口</h3><p>一个入口发起问题，各模块保留自己的业务流程与数据主权。</p></header>' +
         '<div class="assistant-domain-list">' + domainCard("quality", false) + domainCard("projects", false) + domainCard("standardization", false) + domainCard("problems", false) + '</div></section>' +
         '<section class="assistant-side-panel assistant-architecture"><span class="assistant-side-kicker">INTEGRATION READINESS</span><h3>问答能力接入状态</h3><div class="assistant-readiness-list">' + readinessRows() + '</div><a href="#/app_center" class="assistant-status-link">查看应用注册中心 ' + UI.icon("arrow-up-right") + '</a></section></aside></div></section>';
+    el.querySelector("#assistantNewSession").addEventListener("click", function () {
+      state.messages = [];
+      state.scope = "auto";
+      const select = el.querySelector("#assistantScope");
+      const input = el.querySelector("#assistantInput");
+      if (select) select.value = "auto";
+      if (input) { input.value = ""; input.focus(); }
+      renderMessages();
+    });
     const form = el.querySelector("#assistantForm");
     form.addEventListener("submit", function (event) { event.preventDefault(); submitQuestion(); });
     el.querySelector("#assistantInput").addEventListener("keydown", function (event) {
