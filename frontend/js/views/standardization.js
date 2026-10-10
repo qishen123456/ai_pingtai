@@ -99,6 +99,11 @@ window.Views.standardization = (function () {
     const query = panel.querySelector("#simQuery").value.trim();
     if (query.length < 2) return UI.toast("请输入至少 2 个字符的物料名称或关键词", "warn");
     state.query = query;
+    const host = panel.querySelector("#simResults");
+    const button = panel.querySelector("#simRun");
+    button.disabled = true;
+    button.textContent = "检索中…";
+    host.innerHTML = '<div class="processing-status ai-shimmer" role="status" aria-live="polite"><span class="processing-indicator" aria-hidden="true"></span><div><strong>正在检索候选物料</strong><p>按文本相似度查询本地物料目录；分值不代表 AI 置信度。</p></div></div>';
     try {
       const result = await api.post("/api/standardization/similarity", {
         query: query, specification: panel.querySelector("#simSpec").value.trim(),
@@ -107,7 +112,13 @@ window.Views.standardization = (function () {
       state.similarity = result.items || [];
       panel.querySelector("#simNotice").textContent = result.notice;
       showSimilarResults();
-    } catch (error) { UI.toast(error.message, "error"); }
+    } catch (error) {
+      host.innerHTML = "";
+      UI.toast(error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "检索相似件";
+    }
   }
 
   function showSimilarResults() {
@@ -173,12 +184,23 @@ window.Views.standardization = (function () {
     if (name.length < 2) return UI.toast("请填写 BOM 名称", "warn");
     if (!items.length) return UI.toast("请至少填写一条物料编码", "warn");
     if (items.some(function (item) { return !Number.isFinite(item.quantity) || item.quantity <= 0; })) return UI.toast("物料数量必须大于 0", "warn");
+    const resultHost = panel.querySelector("#bomResultHost");
+    const button = panel.querySelector("#bomCheck");
+    button.disabled = true;
+    button.textContent = "校验中…";
+    resultHost.innerHTML = '<div class="processing-status ai-shimmer" role="status" aria-live="polite"><span class="processing-indicator" aria-hidden="true"></span><div><strong>正在逐项校验 BOM</strong><p>比对本地物料档案与优选规则，请稍候。</p></div></div>';
     try {
       const result = await api.post("/api/standardization/bom/check", { bom_name: name, items: items });
       state.bomResult = result;
       showBomResult(result);
       UI.toast("BOM 校验完成，结果已保存到历史记录", "success");
-    } catch (error) { UI.toast(error.message, "error"); }
+    } catch (error) {
+      resultHost.innerHTML = "";
+      UI.toast(error.message, "error");
+    } finally {
+      button.disabled = false;
+      button.textContent = "运行合规检查";
+    }
   }
 
   function showBomResult(result) {
