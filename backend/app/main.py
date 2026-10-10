@@ -35,7 +35,7 @@ HTTP_REQUEST_DURATION = Histogram(
 def _route_group(path: str) -> str:
     if path in {"/health/live", "/health/ready"}:
         return path
-    for prefix in ("/api/imports", "/api/projects", "/api/standardization", "/api/apps", "/api/system"):
+    for prefix in ("/api/imports", "/api/projects", "/api/standardization", "/api/assistant", "/api/apps", "/api/system"):
         if path.startswith(prefix):
             return prefix
     if path == "/metrics":
