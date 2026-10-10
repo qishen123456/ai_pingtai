@@ -17,9 +17,9 @@ window.Views.projects = (function () {
         '<div class="pm-hero"><div><span class="module-kicker">PROJECT CONTROL · LOCAL PILOT</span>' +
         '<h2>项目组合与交付控制</h2><p>统一查看项目阶段、DCP 里程碑和风险责任。当前记录保存在门户本地试点库，不会自动同步至独立项目管理系统。</p></div>' +
         '<div class="pm-hero-actions"><span class="local-source-badge">本地试点数据</span><button class="btn btn-primary" id="pmAddProject">' + UI.icon("plus") + ' 新建项目</button></div></div>' +
-        '<div class="pm-tabs" id="pmTabs">' +
-          '<button class="tab active" data-tab="portfolio">项目组合</button><button class="tab" data-tab="gates">DCP 里程碑</button>' +
-          '<button class="tab" data-tab="risks">风险闭环</button><button class="tab" data-tab="report">报告中心</button>' +
+        '<div class="pm-tabs" id="pmTabs" role="tablist" aria-label="项目管理视图">' +
+          '<button type="button" role="tab" aria-selected="true" class="tab active" data-tab="portfolio">项目组合</button><button type="button" role="tab" aria-selected="false" class="tab" data-tab="gates">DCP 里程碑</button>' +
+          '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="risks">风险闭环</button><button type="button" role="tab" aria-selected="false" class="tab" data-tab="report">报告中心</button>' +
         '</div><div id="pmPanel"><div class="empty">正在加载项目数据…</div></div></section>';
     el.querySelectorAll("#pmTabs [data-tab]").forEach(function (tab) {
       tab.addEventListener("click", function () { state.tab = tab.dataset.tab; renderActiveTab(); });
@@ -43,7 +43,9 @@ window.Views.projects = (function () {
   function renderActiveTab() {
     if (!state.el) return;
     state.el.querySelectorAll("#pmTabs [data-tab]").forEach(function (tab) {
-      tab.classList.toggle("active", tab.dataset.tab === state.tab);
+      const selected = tab.dataset.tab === state.tab;
+      tab.classList.toggle("active", selected);
+      tab.setAttribute("aria-selected", String(selected));
     });
     if (state.tab === "portfolio") renderPortfolio();
     else if (state.tab === "gates") renderGates();
