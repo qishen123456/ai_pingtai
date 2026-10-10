@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..config import MAX_PREVIEW_ROWS, MAX_UPLOAD_MB, UPLOAD_DIR, UPLOAD_RETENTION_DAYS
+from ..config import (IMPORT_DEDUPE_POLICY, MAX_PREVIEW_ROWS, MAX_UPLOAD_MB, UPLOAD_DIR, UPLOAD_RETENTION_DAYS)
 from ..db import get_db
 from ..models import (
     BATCH_CONFIRMED,
@@ -250,7 +250,7 @@ def confirm_import(batch_id: int, payload: ConfirmImportPayload, db: Session = D
     duplicates = 0
     for item in imported:
         values = item["values"]
-        row_hash = make_row_hash(batch.sheet_name, item["excel_row"], values)
+        row_hash = make_row_hash(batch.sheet_name, item["excel_row"], values, batch_id=batch.id, mode=IMPORT_DEDUPE_POLICY)
         rec = ProblemRecord(
             batch_id=batch.id,
             excel_row=item["excel_row"],
