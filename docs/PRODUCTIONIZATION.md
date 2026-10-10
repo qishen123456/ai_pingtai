@@ -12,7 +12,7 @@
 - 健康状态与日志：提供 /health/live、/health/ready、请求日志、请求 ID 和可选 Prometheus 指标。
 - Excel 导入保护：上传大小、工作表数量、列数、ZIP 条目数量、解压体积、压缩比限制；文件名与存储路径校验；上传文件按保留期清理；超过预览上限明确提示并禁止部分导入。
 - 幂等与 DCP 基础规则：问题行指纹不依赖 Excel 行号/Sheet 名；确认批次使用 PostgreSQL 行锁保护并发重复确认；每个项目 DCP gate 唯一；DCP 顺序规则需要业务选定后才允许生产配置。
-- 部署骨架：Dockerfile 使用非 root 用户；Compose 隔离 PostgreSQL、应用、OIDC 代理和 Nginx TLS 入口；应用容器不直接发布到宿主机端口；备份脚本生成 pg_dump、检查归档列表并计算 SHA-256。
+- 部署骨架：Dockerfile 使用非 root 用户；Compose 隔离 PostgreSQL、应用、OIDC 代理和 Nginx TLS 入口；应用容器不直接发布到宿主机端口；备份任务使用只读 PostgreSQL 备份角色，同时归档上传文件目录、检查归档列表并计算 SHA-256（完整恢复仍需演练）。
 - 自动测试：CI 覆盖现有 API、DCP、身份/RBAC、Excel 安全与语法。CI 通过不能替代安全、性能或灾备验收。
 
 ## 2. 上线前必须填写的真实信息
@@ -31,7 +31,7 @@
 | 数据保留、RPO/RTO、异地备份、恢复演练频率 | DBA/业务负责人 | 不通过灾备验收 |
 | 正式测试样本和业务验收标准 | 质量、PMO、工程 | 不可宣称业务验收通过 |
 
-凭证只通过受控 Secret Manager 或部署环境注入。不要将真实 .env、密钥、数据库密码、token 或生产数据提交到 Git。
+凭证只通过受控 Secret Manager 或部署环境注入。不要将真实 .env、密钥、数据库密码、token 或生产数据提交到 Git。备份角色的密码也须使用受控密钥管理，且至少 24 位，仅使用英文字母、数字、点、下划线和连字符。
 
 ## 3. 首次部署（先在测试环境演练）
 
@@ -39,9 +39,9 @@
 2. 填写 OIDC_ISSUER_URL、OIDC_CLIENT_ID、OIDC_CLIENT_SECRET、OIDC_EMAIL_DOMAINS、OAUTH2_PROXY_COOKIE_SECRET、OAUTH2_PROXY_IMAGE、SERVER_NAME 和 TLS 证书。
 3. 确认 IdP 返回 groups claim，并验证 Nginx 会覆盖客户端传入的 X-Auth-Request-*。只允许 Nginx 访问应用，禁止直接暴露应用和数据库端口。
    同时手动将 `deploy/nginx.conf` 中的 `server_name workbench.example.invalid` 替换为真实域名，并把匹配该域名的证书放到 `deploy/tls/fullchain.pem` 和 `deploy/tls/privkey.pem`；当前只是路径占位，不包含企业证书签发/续期配置。
-4. 备份旧数据；由 DBA 确认生产库、网络和 TLS 策略。演练迁移：docker compose -f docker-compose.production.yml run --rm migrate。
+4. 先明确当前 SQLite 试点数据是否需要保留。**当前没有自动 SQLite→PostgreSQL 数据迁移工具**，如需保留台账/批次/上传附件，必须单独制定并验证转换、条数对账和回滚方案；不要仅修改 DATABASE_URL 后就认为数据已迁移。由 DBA 确认生产库、网络和 TLS 策略。演练迁移：docker compose -f docker-compose.production.yml run --rm migrate。
 5. 测试环境先启动并验证：docker compose -f docker-compose.production.yml up -d db migrate app auth-proxy nginx。验证登录、角色权限、健康检查和外部系统状态页。
-6. 执行 bash scripts/backup_database.sh；再在隔离环境做完整恢复演练并记录恢复时间。归档列表检查成功并不等于已证明可恢复。
+6. 在 Compose 的 ops profile 下运行备份任务：docker compose -f docker-compose.production.yml --profile ops run --rm backup。它会一起备份 PostgreSQL 和上传文件目录；再在隔离环境做完整恢复演练并记录恢复时间。归档列表检查成功并不等于已证明可恢复。
 7. 配置日志收集、告警、磁盘/DB 容量监控、证书续期、漏洞扫描、备份告警与回滚责任人。
 
 配置模板不会自动创建企业身份应用、TLS 证书、防火墙规则或数据库凭证。
@@ -68,7 +68,7 @@
 
 ## 6. 发布验收记录（待补）
 
-- 业务验收负责人：待填写
+- 旧 SQLite 数据处理决策/对账记录：待填写\n- 业务验收负责人：待填写
 - 安全/身份审批单：待填写
 - DBA 迁移审批与恢复演练记录：待填写
 - 生产域名/环境/发布窗口：待填写
