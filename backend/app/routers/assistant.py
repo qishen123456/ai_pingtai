@@ -171,10 +171,11 @@ def _extract_time_floor(question: str) -> Optional[datetime]:
 
 
 def _filter_words(question: str) -> list[str]:
-    ignored = set("帮我查询查看一下这个那个最近当前项目机型编号产品型号推广名质量问题整改情况状态进度有哪些怎么怎么样汇总所有全部数据记录".split())
     tokens = re.findall(r"[\u4e00-\u9fff]{2,}|[A-Za-z0-9][A-Za-z0-9._-]{1,}", question)
-    return [token for token in tokens if token not in ignored and len(token) >= 2]
-
+    ignored = ("帮我", "查询", "查看", "一下", "这个", "那个", "最近", "当前",
+               "机型", "编号", "产品型号", "推广名", "质量", "问题", "整改",
+               "情况", "状态", "进度", "有哪些", "怎么", "汇总", "所有", "全部", "数据", "记录")
+    return [token for token in tokens if not any(word in token for word in ignored)][:8]
 
 def _problem_item(row: ProblemRecord) -> dict:
     status_hint = "整改信息待补充"
