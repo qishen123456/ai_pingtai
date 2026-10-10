@@ -63,6 +63,13 @@ def integration_status():
             "type": "postgresql" if DATABASE_URL.startswith(("postgresql:", "postgresql+")) else "sqlite",
             "production_ready": DATABASE_URL.startswith(("postgresql:", "postgresql+")),
         },
+        "business_rules": {
+            "dcp_gate_policy": config.DCP_GATE_POLICY,
+            "dcp_policy_approved": config.DCP_GATE_POLICY in {"sequential", "independent"},
+            "bom_policy_version": config.BOM_POLICY_VERSION,
+            "bom_policy_approved": bool(config.BOM_POLICY_VERSION and config.BOM_POLICY_VERSION.lower() not in {"unconfigured", "placeholder", "__set_me__"}),
+            "note": "状态仅表示配置字段是否填入；业务负责人签字和规则验收仍需单独留档。",
+        },
         "integrations": [
             {"id": "problem_hub", "name": "问题经验 / problem-hub", "endpoint_configured": bool(PROBLEM_HUB_URL),
              "adapter_implemented": False, "status": "configured_placeholder" if PROBLEM_HUB_URL else "waiting_for_endpoint",
