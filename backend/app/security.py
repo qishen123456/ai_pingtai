@@ -40,16 +40,17 @@ def validate_production_configuration() -> None:
         "OIDC_EMAIL_DOMAINS": config.OIDC_EMAIL_DOMAINS,
         "OAUTH2_PROXY_IMAGE": config.OAUTH2_PROXY_IMAGE,
         "SERVER_NAME": config.SERVER_NAME,
+        "DB_PASSWORD": config.DB_PASSWORD,
     }
     for name, value in identity_values.items():
         upper_value = (value or "").upper()
-        if not value or any(token in upper_value for token in ("__SET_ME__", "PLACEHOLDER", "EXAMPLE.INVALID", "SET_APPROVED_TAG")):
+        if not value or any(token in upper_value for token in ("__SET_ME__", "PLACEHOLDER", "EXAMPLE.INVALID", "SET_APPROVED_TAG", "SET_URL_SAFE_RANDOM_PASSWORD")):
             errors.append("%s must be set to an approved non-placeholder value" % name)
     if not config.AUTH_PROXY_TRUSTED:
         errors.append("AUTH_PROXY_TRUSTED=true is required only behind a private trusted gateway")
     if config.DATABASE_URL.startswith("sqlite"):
         errors.append("DATABASE_URL must point to PostgreSQL in production")
-    if any(token in config.DATABASE_URL.upper() for token in ("__SET_ME__", "PLACEHOLDER", "CHANGE_ME")):
+    if any(token in config.DATABASE_URL.upper() for token in ("__SET_ME__", "PLACEHOLDER", "CHANGE_ME", "SET_URL_SAFE_RANDOM_PASSWORD")):
         errors.append("DATABASE_URL contains a placeholder credential")
     for role, groups in ROLE_GROUPS.items():
         parsed = _csv(groups)
