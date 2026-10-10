@@ -29,6 +29,7 @@ const api = (function () {
   return {
     get: (url) => request("GET", url),
     post: (url, body) => request("POST", url, body || {}),
+    patch: (url, body) => request("PATCH", url, body || {}),
     upload: (url, formData) => request("POST", url, formData, true),
   };
 })();

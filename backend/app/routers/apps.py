@@ -21,8 +21,8 @@ class AppCreate(BaseModel):
 def _builtin_apps() -> list[dict]:
     return [
         {"id": "problems", "name": "AI + 问题经验", "description": "问题经验库、Excel 智能导入与整改闭环。", "category": "质量与经验", "icon": "problems", "status": "active", "route_path": "problems", "owner": "质量团队", "is_core": 1, "entry_url": PROBLEM_HUB_URL or None, "evidence_note": "本平台内置导入试点；完整企业版为独立系统，入口需由部署配置提供。"},
-        {"id": "projects", "name": "AI + 项目管理", "description": "项目群、预警规则、DCP 台账与报告中心。", "category": "项目运营", "icon": "projects", "status": "active", "route_path": "projects", "owner": "PMO", "is_core": 1, "entry_url": PM_PLATFORM_URL or None, "evidence_note": "已有独立项目管理系统；当前门户不代理其数据，入口需由部署配置提供。"},
-        {"id": "standardization", "name": "AI + 标准化与优选件", "description": "相似件检索、BOM 合规校验与优选件推荐。", "category": "标准化", "icon": "standardization", "status": "planned", "route_path": "standardization", "owner": "标准化团队", "is_core": 1, "entry_url": None, "evidence_note": "待业务规则、PLM 只读账号与样本到位后启动。"},
+        {"id": "projects", "name": "AI + 项目管理", "description": "项目组合、DCP 里程碑、风险闭环与周报导出。", "category": "项目运营", "icon": "projects", "status": "active", "route_path": "projects", "owner": "PMO", "is_core": 1, "entry_url": PM_PLATFORM_URL or None, "evidence_note": "本门户提供本地项目管理试点；配置 PM_PLATFORM_URL 后可跳转独立项目管理系统，本地数据与独立系统数据分离。"},
+        {"id": "standardization", "name": "AI + 标准化与优选件", "description": "物料目录、相似件检索、BOM 合规校验与优选件推荐。", "category": "标准化", "icon": "standardization", "status": "active", "route_path": "standardization", "owner": "标准化团队", "is_core": 1, "entry_url": None, "evidence_note": "本地物料库与确定性规则已可试用；PLM 尚未接入，正式替代/放行仍需工程师复核。"},
         {"id": "quality-assistant", "name": "质量决策助手", "description": "面向质量数据的受控查询、证据引用与人工审核。", "category": "质量决策", "icon": "problems", "status": "planned", "route_path": "quality-assistant", "owner": "质量团队", "is_core": 1, "entry_url": None, "evidence_note": "待质量库接口、算力和权限方案明确后启动。"},
     ]
 

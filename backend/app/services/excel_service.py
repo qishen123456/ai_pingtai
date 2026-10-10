@@ -8,7 +8,11 @@ V0.1 边界：
 from __future__ import annotations
 
 import io
+import zipfile
 from typing import Any, Dict, List, Optional, Tuple
+
+from ..config import (MAX_PREVIEW_ROWS, MAX_XLSX_COLUMNS, MAX_XLSX_COMPRESSION_RATIO,
+                      MAX_XLSX_SHEETS, MAX_XLSX_UNCOMPRESSED_MB, MAX_XLSX_ZIP_ENTRIES)
 
 from openpyxl import load_workbook
 
@@ -22,26 +26,61 @@ from .mapping import (
 from .normalizer import is_blank, normalize_row
 from .recognizer import HeaderRecognizer, get_recognizer
 
-MAX_PREVIEW_ROWS = 500
 
 
 class ExcelParseError(Exception):
     """可直接展示给用户的解析错误。"""
 
 
+def _validate_xlsx_archive(file_bytes: bytes) -> None:
+    """Reject malformed, oversized and suspiciously compressed workbooks before XML parsing."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as archive:
+            entries = archive.infolist()
+            if len(entries) > MAX_XLSX_ZIP_ENTRIES:
+                raise ExcelParseError("工作簿内部文件过多，已触发安全限制")
+            names = [entry.filename for entry in entries]
+            if len(names) != len(set(names)):
+                raise ExcelParseError("工作簿包含重复的 ZIP 文件路径，已拒绝解析")
+            if "[Content_Types].xml" not in names or "xl/workbook.xml" not in names:
+                raise ExcelParseError("文件不是有效的 .xlsx 工作簿")
+            uncompressed = sum(entry.file_size for entry in entries)
+            compressed = sum(entry.compress_size for entry in entries)
+            limit = MAX_XLSX_UNCOMPRESSED_MB * 1024 * 1024
+            if uncompressed > limit:
+                raise ExcelParseError("工作簿解压后超过 %dMB 安全上限" % MAX_XLSX_UNCOMPRESSED_MB)
+            ratio = uncompressed / max(compressed, 1)
+            if ratio > MAX_XLSX_COMPRESSION_RATIO:
+                raise ExcelParseError("工作簿压缩比异常，已触发安全限制")
+            if any(entry.file_size > 0 and entry.compress_size == 0 for entry in entries):
+                raise ExcelParseError("工作簿包含异常压缩条目，已拒绝解析")
+    except ExcelParseError:
+        raise
+    except (zipfile.BadZipFile, OSError, ValueError) as exc:
+        raise ExcelParseError("文件无法解析（可能已损坏或不是有效的 .xlsx 文件）") from exc
+
+
 def _read_grids(file_bytes: bytes) -> List[Dict[str, Any]]:
+    _validate_xlsx_archive(file_bytes)
     try:
         wb = load_workbook(io.BytesIO(file_bytes), data_only=True, read_only=True)
-    except Exception as exc:  # openpyxl 对损坏文件抛多种异常，统一转中文可读错误
+    except Exception as exc:  # openpyxl 可能抛出多种 XML/ZIP 错误，统一成可展示的信息
         raise ExcelParseError("文件无法解析（可能已损坏或不是有效的 .xlsx 文件）") from exc
 
     sheets: List[Dict[str, Any]] = []
-    for ws in wb.worksheets:
-        grid: List[List[Any]] = []
-        for row in ws.iter_rows(max_row=MAX_PREVIEW_ROWS + 5, values_only=True):
-            grid.append(list(row))
-        sheets.append({"name": ws.title, "grid": grid})
-    wb.close()
+    try:
+        if len(wb.worksheets) > MAX_XLSX_SHEETS:
+            raise ExcelParseError("工作表数量超过 %d 个安全上限" % MAX_XLSX_SHEETS)
+        for ws in wb.worksheets:
+            if ws.max_column is not None and ws.max_column > MAX_XLSX_COLUMNS:
+                raise ExcelParseError("工作表“%s”的列数超过 %d 列安全上限" % (ws.title, MAX_XLSX_COLUMNS))
+            grid: List[List[Any]] = []
+            # Extra rows allow us to flag overflow instead of silently confirming a partial import.
+            for row in ws.iter_rows(max_row=MAX_PREVIEW_ROWS + 10, max_col=MAX_XLSX_COLUMNS, values_only=True):
+                grid.append(list(row))
+            sheets.append({"name": ws.title, "grid": grid, "max_row": ws.max_row})
+    finally:
+        wb.close()
     return sheets
 
 
@@ -62,12 +101,17 @@ def summarize_sheets(file_bytes: bytes, recognizer: Optional[HeaderRecognizer] =
                 1 for row in grid[header_idx + 1:]
                 if any(c is not None and str(c).strip() for c in row)
             )
+        truncated = bool(
+            header_idx is not None and sheet.get("max_row")
+            and sheet["max_row"] > header_idx + 1 + MAX_PREVIEW_ROWS
+        )
         result.append({
             "name": sheet["name"],
             "header_row": (header_idx + 1) if header_idx is not None else None,
             "matched_fields": sorted(matched),
             "matched_count": len(matched),
             "data_rows": data_rows,
+            "truncated": truncated,
             "score": len(matched) + (1 if "description" in matched else 0),
         })
     if result:
@@ -140,10 +184,11 @@ def build_preview(
 ) -> Dict[str, Any]:
     """解析指定工作表，返回列映射 + 行预览（含归一值与问题标记）。"""
     recognizer = recognizer or get_recognizer()
-    sheets = {s["name"]: s["grid"] for s in _read_grids(file_bytes)}
+    sheets = {s["name"]: s for s in _read_grids(file_bytes)}
     if sheet_name not in sheets:
         raise ExcelParseError("工作表不存在：%s" % sheet_name)
-    grid = sheets[sheet_name]
+    sheet_info = sheets[sheet_name]
+    grid = sheet_info["grid"]
 
     header_idx = detect_header_row(grid)
     if header_idx is None:
@@ -171,9 +216,19 @@ def build_preview(
     error_rows = sum(1 for r in rows if any(i["level"] == "error" for i in r["issues"]))
     pending_cols = [c["index"] for c in columns if c["level"] == "medium"]
     unmapped_cols = [c["index"] for c in columns if not c["field"] and c["raw_header"].strip()]
+    truncated = bool(
+        sheet_info.get("max_row")
+        and sheet_info["max_row"] > header_idx + 1 + MAX_PREVIEW_ROWS
+    )
     return {
         "sheet_name": sheet_name,
         "header_row": header_idx + 1,
+        "truncated": truncated,
+        "preview_row_limit": MAX_PREVIEW_ROWS,
+        "truncation_warning": (
+            "工作表可能超过预览上限；为避免部分数据被静默导入，本批次禁止确认。请拆分文件后重新上传。"
+            if truncated else ""
+        ),
         "columns": columns,
         "field_labels": FIELD_LABELS,
         "data_fields": DATA_FIELDS,

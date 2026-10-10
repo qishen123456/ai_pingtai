@@ -1,0 +1,50 @@
+name: Deployment template validation
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, "fix/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Create temporary non-secret values for syntax validation
+        shell: bash
+        run: |
+          cat > /tmp/workbench-compose.env <<'EOF'
+          DB_PASSWORD=CiUrlSafeDatabasePassword_2026
+          BACKUP_DB_PASSWORD=CiBackupUrlSafePassword_2026
+          DCP_GATE_POLICY=sequential
+          BOM_POLICY_VERSION=ci-approved-baseline
+          IMPORT_DEDUPE_POLICY=content
+          AUTH_ADMIN_GROUPS=ci-admins
+          AUTH_QUALITY_GROUPS=ci-quality
+          AUTH_PM_GROUPS=ci-pm
+          AUTH_ENGINEERING_GROUPS=ci-engineering
+          AUTH_VIEWER_GROUPS=ci-viewers
+          OAUTH2_PROXY_IMAGE=quay.io/oauth2-proxy/oauth2-proxy:v7.8.1
+          OIDC_ISSUER_URL=https://idp.ci.example.com
+          OIDC_CLIENT_ID=CiSyntheticClient_2026
+          OIDC_CLIENT_SECRET=CiSyntheticSecret_2026
+          OAUTH2_PROXY_COOKIE_SECRET=01234567890123456789012345678901
+          OIDC_EMAIL_DOMAINS=ci.example.com
+          SERVER_NAME=workbench.ci.example.com
+          EOF
+      - name: Validate production Compose configuration
+        run: docker compose --env-file /tmp/workbench-compose.env -f docker-compose.production.yml config --quiet
+      - name: Build application and backup image
+        run: docker build --tag ai-pingtai-workbench:ci .
+      - name: Exercise production preflight with CI-only placeholders
+        run: docker run --rm --env-file /tmp/workbench-compose.env ai-pingtai-workbench:ci bash /app/scripts/validate_production_env.sh
+      - name: Check backup script syntax
+        run: bash -n scripts/backup_database.sh
+      - name: Check PostgreSQL role bootstrap syntax
+        run: bash -n deploy/postgres-init/01-backup-role.sh

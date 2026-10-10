@@ -66,11 +66,11 @@ window.Views.problems = (function () {
     el.innerHTML =
       '<section class="experience-shell">' +
       '<div class="experience-masthead"><div><span class="module-kicker">QUALITY EXPERIENCE · PILOT</span><h2>问题经验工作台</h2><p>从 Excel 智能导入到问题台账，以规则校验确保每一条记录可追溯。</p></div><div class="experience-mark">' + UI.icon("problems") + '<span>规则驱动<br><b>可审计</b></span></div></div>' +
-      '<div class="experience-tabs" id="pTabs">' +
-      '<div class="tab" data-tab="overview">问题管理概览</div>' +
-      '<div class="tab" data-tab="import">Excel 智能导入</div>' +
-      '<div class="tab" data-tab="records">问题台账</div>' +
-      '<div class="tab" data-tab="history">导入历史批次</div></div>' +
+      '<div class="experience-tabs" id="pTabs" role="tablist" aria-label="问题经验视图">' +
+      '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="overview">问题管理概览</button>' +
+      '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="import">Excel 智能导入</button>' +
+      '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="records">问题台账</button>' +
+      '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="history">导入历史批次</button></div>' +
       '<div id="pBody"></div></section>';
 
     el.querySelectorAll("#pTabs .tab").forEach((tab) => {
@@ -85,8 +85,11 @@ window.Views.problems = (function () {
 
   function switchTab(tab) {
     state.tab = tab;
-    document.querySelectorAll("#pTabs .tab").forEach((t) =>
-      t.classList.toggle("active", t.dataset.tab === tab));
+    document.querySelectorAll("#pTabs .tab").forEach((t) => {
+      const selected = t.dataset.tab === tab;
+      t.classList.toggle("active", selected);
+      t.setAttribute("aria-selected", String(selected));
+    });
     const body = document.querySelector("#pBody");
     if (!body) return;
     
@@ -166,6 +169,7 @@ window.Views.problems = (function () {
       '<div class="uploader" id="uploader"><div class="up-ico">' + UI.icon("file") + '</div><div style="font-size:15px; font-weight:600; color:var(--text-1); margin-bottom:4px;">点击选择文件，或将 .xlsx 文件拖拽到此处</div>' +
       '<div class="up-hint">仅支持标准 .xlsx 格式文件，上限 20MB；表头列顺序与名称不限制，规则引擎将自动智能匹配</div></div>' +
       '<input type="file" id="fileInput" accept=".xlsx" style="display:none">' +
+      '<div class="processing-status ai-shimmer" id="importProcessingStatus" role="status" aria-live="polite" hidden><span class="processing-indicator" aria-hidden="true"></span><div><strong class="processing-title">正在解析 Excel 文件</strong><p class="processing-detail">读取工作表结构并匹配字段，数据尚未写入台账。</p></div></div>' +
       '<div style="margin-top:16px; padding:12px 16px; background:var(--primary-soft); border:1px solid var(--primary-border); border-radius:var(--radius-sm);" class="muted">' +
       '💡 <b>测试数据提示：</b>若没有测试文件，可下载标准测试样本：<a href="/samples/问题导入演示样本.xlsx" download style="color:var(--primary); font-weight:600;">下载问题导入标准测试样本.xlsx</a> ' +
       '（包含正常数据行、缺必填行、非标准严重度、异化日期格式及同义词表头，支持验证完整校验流程）</div>' +
@@ -200,7 +204,18 @@ window.Views.problems = (function () {
     }
     const fd = new FormData();
     fd.append("file", file);
-    UI.toast("正在解析 Excel 文件内容并匹配字段…");
+    const body = document.querySelector("#pBody");
+    const status = body && body.querySelector("#importProcessingStatus");
+    const uploader = body && body.querySelector("#uploader");
+    if (status) status.hidden = false;
+    if (status) {
+      status.querySelector(".processing-title").textContent = "正在解析 Excel 文件";
+      status.querySelector(".processing-detail").textContent = "读取工作表结构并匹配字段，数据尚未写入台账。";
+    }
+    if (uploader) {
+      uploader.classList.add("is-processing");
+      uploader.setAttribute("aria-busy", "true");
+    }
     try {
       const resp = await api.upload("/api/imports/upload", fd);
       state.batchId = resp.batch_id;
@@ -210,6 +225,11 @@ window.Views.problems = (function () {
       UI.toast("文件解析完成，请核对字段映射与数据明细", "success");
       renderWizard(document.querySelector("#pBody"));
     } catch (e) {
+      if (status) status.hidden = true;
+      if (uploader) {
+        uploader.classList.remove("is-processing");
+        uploader.removeAttribute("aria-busy");
+      }
       UI.toast(e.message, "error");
     }
   }
@@ -255,7 +275,15 @@ window.Views.problems = (function () {
     const rows = p.rows || [];
     const errorCount = rows.filter((r) => rowIssues(r).some((i) => i.level === "error") && !r.excluded).length;
 
+    const truncationWarning = p.truncated
+      ? '<div class="notice notice-warning" role="alert" style="margin:12px 0;padding:14px 16px;border:1px solid var(--warning,#d97706);border-radius:10px;background:var(--warning-bg,#fff7ed);color:var(--text-1);">' +
+        '<strong>已达到预览行数上限，禁止确认导入</strong><div style="margin-top:6px;">' + UI.esc(p.truncation_warning || "当前工作表可能只读取了部分行。请拆分 Excel 后重新上传，不能把部分数据当作全量导入。") + '</div></div>'
+      : "";
+
+    const processingStatusHtml = '<div class="processing-status ai-shimmer" id="importProcessingStatus" role="status" aria-live="polite" hidden><span class="processing-indicator" aria-hidden="true"></span><div><strong class="processing-title">正在更新预览</strong><p class="processing-detail">重新检查字段映射与数据规则，请稍候。</p></div></div>';
     body.innerHTML = stepsHtml +
+      processingStatusHtml +
+      truncationWarning +
       '<div class="card" style="margin-bottom:18px;"><div class="card-title">① 选择 Excel 工作表</div>' + sheetsHtml + "</div>" +
       '<div class="card" style="margin-bottom:18px;"><div class="card-title">② 字段映射表（智能解析结果）' +
       (pendingCols.length ? ' <span class="badge badge-amber">' + pendingCols.length + " 列待确认</span>" : "") +
@@ -301,7 +329,13 @@ window.Views.problems = (function () {
       state.batchId = null; state.sheets = []; state.preview = null; state.lastResult = null;
       renderImport(body);
     });
-    body.querySelector("#confirmBtn").addEventListener("click", () => doConfirm(body, rows));
+    const confirmButton = body.querySelector("#confirmBtn");
+    if (confirmButton && p.truncated) {
+      confirmButton.disabled = true;
+      confirmButton.title = "工作表超过预览上限，请拆分文件后重新上传";
+      confirmButton.textContent = "已超预览上限，禁止导入";
+    }
+    if (confirmButton && !p.truncated) confirmButton.addEventListener("click", () => doConfirm(body, rows));
   }
 
   function renderPreviewTable(rows, fields) {
@@ -366,11 +400,19 @@ window.Views.problems = (function () {
   }
 
   async function reloadPreview(payload) {
+    const body = document.querySelector("#pBody");
+    const status = body && body.querySelector("#importProcessingStatus");
+    if (status) {
+      status.hidden = false;
+      status.querySelector(".processing-title").textContent = "正在更新字段映射与预览";
+      status.querySelector(".processing-detail").textContent = "正在重新检查映射规则与数据校验结果。";
+    }
     try {
       const resp = await api.post("/api/imports/" + state.batchId + "/preview", payload);
       state.preview = resp.preview;
       renderWizard(document.querySelector("#pBody"));
     } catch (e) {
+      if (status) status.hidden = true;
       UI.toast(e.message, "error");
     }
   }
@@ -383,6 +425,14 @@ window.Views.problems = (function () {
       : "共 " + active.length + " 行数据将提交写入问题台账库，确认提交？";
     if (!(await UI.confirm("确认提交导入", tip))) return;
 
+    const status = body.querySelector("#importProcessingStatus");
+    const confirmButton = body.querySelector("#confirmBtn");
+    if (status) {
+      status.hidden = false;
+      status.querySelector(".processing-title").textContent = "正在校验并提交导入";
+      status.querySelector(".processing-detail").textContent = "正在执行最终规则检查与批次写入，请勿重复提交。";
+    }
+    if (confirmButton) confirmButton.disabled = true;
     try {
       const resp = await api.post("/api/imports/" + state.batchId + "/confirm", {
         rows: rows.map((r) => ({ excel_row: r.excel_row, excluded: r.excluded, values: r.values })),
@@ -390,6 +440,8 @@ window.Views.problems = (function () {
       state.lastResult = resp;
       renderResult(body, resp);
     } catch (e) {
+      if (status) status.hidden = true;
+      if (confirmButton) confirmButton.disabled = false;
       UI.toast(e.message, "error");
     }
   }
@@ -404,7 +456,7 @@ window.Views.problems = (function () {
     body.innerHTML =
       '<div class="steps">' + step(1, "上传 Excel", "done") + line() + step(2, "字段映射", "done") + line() +
       step(3, "预览修正", "done") + line() + step(4, "确认入库", "done") + "</div>" +
-      '<div class="card"><div class="card-title">导入处理完成（批次 #' + r.batch_id + "）</div>" +
+      '<div class="card"><div class="card-title">导入处理完成（批次 <code class="batch-id">#' + r.batch_id + '</code>）</div>' +
       '<div class="result-cards">' +
       '<div class="result-card ok"><div class="num">' + r.imported + '</div><div class="lab">成功写入台账</div></div>' +
       '<div class="result-card fail"><div class="num">' + r.failed + '</div><div class="lab">规则拦截未写入</div></div>' +

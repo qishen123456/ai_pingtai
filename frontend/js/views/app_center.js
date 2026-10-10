@@ -24,10 +24,15 @@ window.Views.app_center = (function () {
     renderAppList(el);
   }
 
-  function renderAppList(el) {
+  function renderAppList(el, gridOnly = false) {
     const apps = state.apps.filter(a => {
       if (state.filterStatus !== 'all' && a.status !== state.filterStatus) return false;
-      if (state.searchKw && !(a.name.includes(state.searchKw) || a.description.includes(state.searchKw))) return false;
+      if (state.searchKw) {
+        const query = state.searchKw.toLocaleLowerCase();
+        const searchable = [a.name, a.owner, a.description, a.category, a.evidence_note]
+          .filter(Boolean).join(" ").toLocaleLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
       return true;
     });
 
@@ -53,6 +58,13 @@ window.Views.app_center = (function () {
       '</div>';
     }).join("") : '<div class="empty" style="grid-column: 1 / -1;"><div class="empty-ico">🔍</div>未检索到符合条件的应用</div>';
 
+    if (gridOnly) {
+      const grid = el.querySelector("#registryGrid");
+      if (grid) grid.innerHTML = appsHtml;
+      bindAppActions(el);
+      return;
+    }
+
     el.innerHTML = 
       '<div class="registry-hero">' +
         '<div class="registry-orbit registry-orbit-a"></div><div class="registry-orbit registry-orbit-b"></div>' +
@@ -65,37 +77,46 @@ window.Views.app_center = (function () {
         '</div>' +
         '<div class="registry-tools">' +
           '<div class="registry-search"><span>' + UI.icon("search") + '</span><input type="text" id="searchApp" placeholder="搜索应用名称、负责人或描述" value="' + UI.esc(state.searchKw) + '"></div>' +
-          '<div class="registry-tabs" id="statusFilter">' +
-            '<div class="tab ' + (state.filterStatus === 'all' ? 'active' : '') + '" data-status="all">全部生命周期</div>' +
-            '<div class="tab ' + (state.filterStatus === 'active' ? 'active' : '') + '" data-status="active">服务可用</div>' +
-            '<div class="tab ' + (state.filterStatus === 'planned' ? 'active' : '') + '" data-status="planned">规划设计中</div>' +
-            '<div class="tab ' + (state.filterStatus === 'draft' ? 'active' : '') + '" data-status="draft">草稿 / 待授权</div>' +
+          '<div class="registry-tabs" id="statusFilter" role="tablist" aria-label="应用生命周期筛选">' +
+            '<button type="button" role="tab" aria-selected="' + (state.filterStatus === 'all' ? 'true' : 'false') + '" class="tab ' + (state.filterStatus === 'all' ? 'active' : '') + '" data-status="all">全部生命周期</button>' +
+            '<button type="button" role="tab" aria-selected="' + (state.filterStatus === 'active' ? 'true' : 'false') + '" class="tab ' + (state.filterStatus === 'active' ? 'active' : '') + '" data-status="active">服务可用</button>' +
+            '<button type="button" role="tab" aria-selected="' + (state.filterStatus === 'planned' ? 'true' : 'false') + '" class="tab ' + (state.filterStatus === 'planned' ? 'active' : '') + '" data-status="planned">规划设计中</button>' +
+            '<button type="button" role="tab" aria-selected="' + (state.filterStatus === 'draft' ? 'true' : 'false') + '" class="tab ' + (state.filterStatus === 'draft' ? 'active' : '') + '" data-status="draft">草稿 / 待授权</button>' +
           '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="registry-grid">' + appsHtml + '</div>';
+      '<div class="registry-grid" id="registryGrid">' + appsHtml + '</div>';
 
     // 绑定事件
     el.querySelector('#newAppBtn').addEventListener('click', () => showNewAppWizard(el));
     
     el.querySelector('#searchApp').addEventListener('input', (e) => {
       state.searchKw = e.target.value.trim();
-      // debounce 简单实现
-      if(window.searchTid) clearTimeout(window.searchTid);
-      window.searchTid = setTimeout(() => renderAppList(el), 300);
+      if (window.searchTid) clearTimeout(window.searchTid);
+      // Update only the result grid; keep focus and IME composition stable while typing Chinese.
+      window.searchTid = setTimeout(() => renderAppList(el, true), 140);
     });
 
     el.querySelectorAll('#statusFilter .tab').forEach(t => {
       t.addEventListener('click', () => {
         state.filterStatus = t.dataset.status;
-        renderAppList(el);
+        el.querySelectorAll('#statusFilter .tab').forEach(tab => {
+          const selected = tab.dataset.status === state.filterStatus;
+          tab.classList.toggle('active', selected);
+          tab.setAttribute('aria-selected', String(selected));
+        });
+        renderAppList(el, true);
       });
     });
 
-    el.querySelectorAll('.open-app-btn').forEach(b => {
+    bindAppActions(el);
+  }
+
+  function bindAppActions(el) {
+    el.querySelectorAll('#registryGrid .open-app-btn').forEach(b => {
       b.addEventListener('click', () => {
         if (b.dataset.url) window.open(b.dataset.url, '_blank', 'noopener');
-        else if (b.dataset.route === 'problems') Router.go('problems');
+        else if (['problems', 'projects', 'standardization'].includes(b.dataset.route)) Router.go(b.dataset.route);
         else UI.toast('该模块尚未配置部署入口，已保留在应用注册中心。', 'warn');
       });
     });
@@ -105,7 +126,7 @@ window.Views.app_center = (function () {
     if (app.status === 'planned') return '<span class="muted" style="font-size:12px;">' + UI.esc(app.evidence_note || '等待启动条件') + '</span>';
     if (app.status === 'draft') return '<span class="muted" style="font-size:12px;">草稿待审核</span>';
     const data = app.entry_url ? ' data-url="' + UI.esc(app.entry_url) + '"' : '';
-    const label = app.entry_url ? '打开独立系统' : (app.route_path === 'problems' ? '进入试点' : '待配置入口');
+    const label = app.entry_url ? '打开独立系统' : (['problems', 'projects', 'standardization'].includes(app.route_path) ? '进入本地试点' : '待配置入口');
     return '<button class="btn btn-sm btn-primary open-app-btn" data-route="' + UI.esc(app.route_path) + '"' + data + '>' + label + '</button>';
   }
 
@@ -139,28 +160,32 @@ window.Views.app_center = (function () {
         '</select>' +
       '</div>';
       
-    // 简单实现单页模态框
-    const modalHtml = 
-      '<div class="modal-mask"><div class="modal-box">' +
-        '<div class="modal-head">注册新增 AI 应用 (Foundation V1 平台能力)</div>' +
+    const modalHtml =
+      '<div class="modal-mask"><section class="modal-box app-create-modal" role="dialog" aria-modal="true" aria-labelledby="appCreateTitle">' +
+        '<div class="modal-head app-create-head"><div><span class="registry-kicker">APPLICATION SETUP</span><h2 id="appCreateTitle">新增 AI 应用</h2><p>先登记基本信息，保存后进入草稿审批。</p></div></div>' +
         '<div class="modal-body">' +
-          '<div class="steps" style="margin-top:0; margin-bottom:20px;">' +
-            '<div class="step active"><div class="step-num">1</div>基本元数据</div><div class="step-line"></div>' +
-            '<div class="step"><div class="step-num">2</div>模板配置</div><div class="step-line"></div>' +
-            '<div class="step"><div class="step-num">3</div>创建成功</div>' +
-          '</div>' +
+          '<div class="app-create-note"><strong>当前步骤：基础信息</strong><p>保存只会创建草稿，不会自动部署，也不会向用户开放入口。</p></div>' +
           step1Html +
         '</div>' +
         '<div class="modal-foot">' +
-          '<button class="btn" id="cancelAppBtn">取消</button>' +
-          '<button class="btn btn-primary" id="nextAppBtn">下一步 / 创建草稿</button>' +
+          '<button class="btn" id="cancelAppBtn" type="button">取消</button>' +
+          '<button class="btn btn-primary" id="nextAppBtn" type="button">保存为草稿</button>' +
         '</div>' +
-      '</div></div>';
+      '</section></div>';
 
     const host = document.getElementById('modalHost');
+    const closeModal = () => {
+      host.innerHTML = '';
+      document.removeEventListener('keydown', handleEscape);
+    };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') closeModal();
+    };
     host.innerHTML = modalHtml;
+    document.addEventListener('keydown', handleEscape);
+    document.getElementById('app_id').focus();
 
-    document.getElementById('cancelAppBtn').addEventListener('click', () => { host.innerHTML = ''; });
+    document.getElementById('cancelAppBtn').addEventListener('click', closeModal);
     document.getElementById('nextAppBtn').addEventListener('click', async () => {
       const id = document.getElementById('app_id').value.trim();
       const name = document.getElementById('app_name').value.trim();
@@ -180,7 +205,7 @@ window.Views.app_center = (function () {
       try {
         const newApp = await api.post("/api/apps", appData);
         UI.toast("应用创建成功，已进入草稿状态，请等待平台授权激活业务模块", "success");
-        host.innerHTML = '';
+        closeModal();
         state.apps.push(newApp);
         
         // 更新侧边栏导航缓存

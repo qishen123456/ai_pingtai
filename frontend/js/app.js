@@ -2,6 +2,7 @@
 (async function () {
   const WORKSPACE_NAVS = [
     { key: "dashboard", icon: "dashboard", label: "工作台首页" },
+    { key: "assistant", icon: "message-square", label: "统一 AI 问答" },
     { key: "app_center", icon: "grid", label: "AI 应用中心" },
     { key: "todos", icon: "todos", label: "我的待办" },
   ];
@@ -11,6 +12,19 @@
   ];
 
   window.PLATFORM_APPS = []; // 缓存注册表数据
+
+  function setMobileNavOpen(open) {
+    const sidebar = document.querySelector(".sidebar");
+    const backdrop = document.getElementById("mobileNavBackdrop");
+    const toggle = document.getElementById("mobileNavToggle");
+    if (sidebar) sidebar.classList.toggle("mobile-open", open);
+    if (backdrop) backdrop.classList.toggle("visible", open);
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.setAttribute("aria-label", open ? "关闭导航" : "打开导航");
+    }
+    document.body.classList.toggle("nav-open", open);
+  }
 
   // 获取图标的辅助函数 (简单复用现有的)
   function getAppIcon(name) {
@@ -28,27 +42,29 @@
     el.innerHTML = items.map((n) => {
       const iconSvg = isApp ? getAppIcon(n.icon) : UI.icon(n.icon);
       if (n.status === "draft" && !isApp) {
-        return '<div class="nav-item" style="opacity:0.5; cursor:not-allowed;" title="功能预留中">' +
-          '<span class="nav-ico">' + iconSvg + '</span><span>' + (n.label || n.name) + '</span>' +
-          '<span class="sys-badge draft">' + (n.tag || '草稿') + '</span></div>';
+        return '<button type="button" class="nav-item is-disabled" disabled title="功能预留中" aria-disabled="true">' +
+          '<span class="nav-ico">' + iconSvg + '</span><span>' + UI.esc(n.label || n.name) + '</span>' +
+          '<span class="sys-badge draft">' + UI.esc(n.tag || '草稿') + '</span></button>';
       }
       
-      const tagHtml = n.status === "active" ? '<span class="sys-badge active">' + (n.entry_url || n.route_path === 'problems' ? '可用' : '待配置') + '</span>' : 
+      const tagHtml = n.status === "active" ? '<span class="sys-badge active">' + (n.entry_url || ['problems', 'projects', 'standardization'].includes(n.route_path) ? '可用' : '待配置') + '</span>' : 
                       n.status === "planned" ? '<span class="sys-badge planned">规划中</span>' :
                       n.status === "draft" ? '<span class="sys-badge draft">草稿</span>' : '';
                       
       const label = isApp ? n.name : n.label;
       const key = isApp ? n.route_path : n.key;
 
-      return '<div class="nav-item" data-key="' + key + '">' +
-        '<span class="nav-ico">' + iconSvg + '</span><span>' + label + '</span>' + tagHtml + '</div>';
+      return '<button type="button" class="nav-item" data-key="' + UI.esc(key) + '">' +
+        '<span class="nav-ico">' + iconSvg + '</span><span>' + UI.esc(label || "") + '</span>' + tagHtml + '</button>';
     }).join("");
 
     el.querySelectorAll(".nav-item[data-key]").forEach((item) => {
         item.addEventListener("click", () => {
+          setMobileNavOpen(false);
           const app = isApp && items.find((candidate) => candidate.route_path === item.dataset.key);
           if (app && app.entry_url) window.open(app.entry_url, '_blank', 'noopener');
-          else if (app && app.route_path !== 'problems') Router.go('app_center');
+          else if (app && ['problems', 'projects', 'standardization'].includes(app.route_path)) Router.go(item.dataset.key);
+          else if (app) Router.go('app_center');
           else Router.go(item.dataset.key);
         });
     });
@@ -56,8 +72,43 @@
 
   // 初始化加载
   async function init() {
+    const mobileToggle = document.getElementById("mobileNavToggle");
+    const mobileBackdrop = document.getElementById("mobileNavBackdrop");
+    if (mobileToggle) mobileToggle.addEventListener("click", () => {
+      setMobileNavOpen(!document.querySelector(".sidebar")?.classList.contains("mobile-open"));
+    });
+    if (mobileBackdrop) mobileBackdrop.addEventListener("click", () => setMobileNavOpen(false));
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") setMobileNavOpen(false);
+    });
+
     renderNavGroup("navWorkspace", WORKSPACE_NAVS);
     renderNavGroup("navPlatform", PLATFORM_NAVS);
+
+    // Display the server-authenticated principal; never infer or hard-code an employee identity.
+    try {
+      const session = await api.get("/api/system/session");
+      const nameEl = document.getElementById("currentUserName");
+      const avatarEl = document.getElementById("currentUserAvatar");
+      if (nameEl) nameEl.textContent = session.actor || "已认证用户";
+      if (avatarEl) avatarEl.textContent = String(session.actor || "?").trim().slice(0, 1).toUpperCase() || "?";
+      const envEl = document.getElementById("envBadge");
+      const runtimeEl = document.getElementById("runtimeBadge");
+      if (envEl) envEl.textContent = session.production ? "生产环境" : "开发 / 试点环境";
+      if (runtimeEl) {
+        runtimeEl.textContent = session.production ? "生产环境 · 已认证" : "开发 / 试点环境";
+        runtimeEl.classList.toggle("is-production", !!session.production);
+        runtimeEl.classList.toggle("is-development", !session.production);
+      }
+    } catch (error) {
+      const nameEl = document.getElementById("currentUserName");
+      const runtimeEl = document.getElementById("runtimeBadge");
+      if (nameEl) nameEl.textContent = "当前会话不可用";
+      if (runtimeEl) {
+        runtimeEl.textContent = "认证状态不可用";
+        runtimeEl.classList.remove("is-production", "is-development");
+      }
+    }
     
     try {
       const res = await api.get("/api/apps");

@@ -7,6 +7,8 @@ import os
 import tempfile
 
 _tmp = tempfile.mkdtemp(prefix="workbench_test_")
+os.environ["APP_ENV"] = "test"
+os.environ["AUTH_MODE"] = "disabled"
 os.environ["DATABASE_URL"] = "sqlite:///%s/test.db" % _tmp
 os.environ["MAX_UPLOAD_MB"] = "20"
 os.environ["RECOGNIZER_ENGINE"] = "rule"

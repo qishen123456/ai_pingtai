@@ -1,0 +1,201 @@
+name: ai-pingtai-workbench
+
+x-workbench-environment: &workbench-environment
+  APP_ENV: production
+  DATABASE_URL: postgresql+psycopg://workbench:${DB_PASSWORD:?Set a strong URL-safe DB_PASSWORD}@db:5432/workbench
+  DATA_DIR: /app/data
+  UPLOAD_DIR: /app/data/uploads
+  AUTH_MODE: proxy
+  AUTH_PROXY_TRUSTED: "true"
+  AUTH_USER_HEADER: X-Auth-Request-User
+  AUTH_EMAIL_HEADER: X-Auth-Request-Email
+  AUTH_GROUPS_HEADER: X-Auth-Request-Groups
+  AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:?Map actual IdP admin groups}
+  AUTH_QUALITY_GROUPS: ${AUTH_QUALITY_GROUPS:?Map actual IdP quality groups}
+  AUTH_PM_GROUPS: ${AUTH_PM_GROUPS:?Map actual IdP PM groups}
+  AUTH_ENGINEERING_GROUPS: ${AUTH_ENGINEERING_GROUPS:?Map actual IdP engineering groups}
+  AUTH_VIEWER_GROUPS: ${AUTH_VIEWER_GROUPS:?Map actual IdP read-only groups}
+  DCP_GATE_POLICY: ${DCP_GATE_POLICY:?Select approved DCP policy}
+  BOM_POLICY_VERSION: ${BOM_POLICY_VERSION:?Set approved engineering policy version}
+  IMPORT_DEDUPE_POLICY: ${IMPORT_DEDUPE_POLICY:?Select approved import deduplication policy}
+  MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+  MAX_PREVIEW_ROWS: ${MAX_PREVIEW_ROWS:-500}
+  MAX_XLSX_SHEETS: ${MAX_XLSX_SHEETS:-40}
+  MAX_XLSX_COLUMNS: ${MAX_XLSX_COLUMNS:-200}
+  MAX_XLSX_ZIP_ENTRIES: ${MAX_XLSX_ZIP_ENTRIES:-2000}
+  MAX_XLSX_UNCOMPRESSED_MB: ${MAX_XLSX_UNCOMPRESSED_MB:-100}
+  MAX_XLSX_COMPRESSION_RATIO: ${MAX_XLSX_COMPRESSION_RATIO:-250}
+  UPLOAD_RETENTION_DAYS: ${UPLOAD_RETENTION_DAYS:-30}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  METRICS_ENABLED: ${METRICS_ENABLED:-false}
+  RECOGNIZER_ENGINE: rule
+  PROBLEM_HUB_URL: ${PROBLEM_HUB_URL:-}
+  PM_PLATFORM_URL: ${PM_PLATFORM_URL:-}
+  QMS_API_BASE_URL: ${QMS_API_BASE_URL:-}
+  PLM_API_BASE_URL: ${PLM_API_BASE_URL:-}
+  MODEL_GATEWAY_URL: ${MODEL_GATEWAY_URL:-}
+  MODEL_NAME: ${MODEL_NAME:-}
+  MODEL_API_KEY: ${MODEL_API_KEY:-}
+
+x-production-validation-environment: &production-validation-environment
+  DB_PASSWORD: ${DB_PASSWORD:?Set a strong URL-safe DB_PASSWORD}
+  BACKUP_DB_PASSWORD: ${BACKUP_DB_PASSWORD:?Set a strong URL-safe read-only backup role password}
+  OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:?Set the enterprise IdP issuer URL}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?Set the enterprise IdP client ID}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?Set the enterprise IdP client secret}
+  OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:?Generate a strong cookie secret}
+  OIDC_EMAIL_DOMAINS: ${OIDC_EMAIL_DOMAINS:?Set approved company email domains}
+  OAUTH2_PROXY_IMAGE: ${OAUTH2_PROXY_IMAGE:?Pin an organization-approved oauth2-proxy image}
+  SERVER_NAME: ${SERVER_NAME:?Set the public hostname}
+  AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:?Map actual IdP admin groups}
+  AUTH_QUALITY_GROUPS: ${AUTH_QUALITY_GROUPS:?Map actual IdP quality groups}
+  AUTH_PM_GROUPS: ${AUTH_PM_GROUPS:?Map actual IdP PM groups}
+  AUTH_ENGINEERING_GROUPS: ${AUTH_ENGINEERING_GROUPS:?Map actual IdP engineering groups}
+  AUTH_VIEWER_GROUPS: ${AUTH_VIEWER_GROUPS:?Map actual IdP read-only groups}
+  DCP_GATE_POLICY: ${DCP_GATE_POLICY:?Select approved DCP policy}
+  BOM_POLICY_VERSION: ${BOM_POLICY_VERSION:?Set approved engineering policy version}
+  IMPORT_DEDUPE_POLICY: ${IMPORT_DEDUPE_POLICY:?Select approved import deduplication policy}
+
+services:
+  preflight:
+    build: .
+    image: ai-pingtai-workbench:local
+    restart: "no"
+    environment: *production-validation-environment
+    command: ["bash", "/app/scripts/validate_production_env.sh"]
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: workbench
+      POSTGRES_USER: workbench
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set a strong URL-safe DB_PASSWORD}
+      BACKUP_DB_PASSWORD: ${BACKUP_DB_PASSWORD:?Set a strong URL-safe read-only backup role password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres-init/01-backup-role.sh:/docker-entrypoint-initdb.d/01-backup-role.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workbench -d workbench"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
+    networks: [backend]
+
+  migrate:
+    build: .
+    image: ai-pingtai-workbench:local
+    restart: "no"
+    environment: *workbench-environment
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    networks: [backend]
+
+  app:
+    build: .
+    image: ai-pingtai-workbench:local
+    restart: unless-stopped
+    environment: *workbench-environment
+    volumes:
+      - workbench_data:/app/data
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    expose:
+      - "8088"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8088/health/ready', timeout=3)"
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks: [backend]
+
+  backup:
+    build: .
+    image: ai-pingtai-workbench:local
+    profiles: ["ops"]
+    restart: "no"
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: workbench
+      PGUSER: workbench_backup
+      PGPASSWORD: ${BACKUP_DB_PASSWORD:?Set a strong URL-safe backup role password}
+      BACKUP_DIR: /app/backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      UPLOAD_DIR: /app/data/uploads
+    volumes:
+      - workbench_data:/app/data:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    networks: [backend]
+    command: ["bash", "/app/scripts/backup_database.sh"]
+
+  auth-proxy:
+    image: ${OAUTH2_PROXY_IMAGE:?Pin an organization-approved oauth2-proxy image}
+    restart: unless-stopped
+    environment:
+      OAUTH2_PROXY_PROVIDER: oidc
+      OAUTH2_PROXY_OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:?Set the enterprise IdP issuer URL}
+      OAUTH2_PROXY_CLIENT_ID: ${OIDC_CLIENT_ID:?Set the enterprise IdP client ID}
+      OAUTH2_PROXY_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?Set the enterprise IdP client secret}
+      OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:?Generate a strong cookie secret}
+      OAUTH2_PROXY_EMAIL_DOMAINS: ${OIDC_EMAIL_DOMAINS:?Set approved company email domains}
+      OAUTH2_PROXY_REDIRECT_URL: https://${SERVER_NAME:?Set the public hostname}/oauth2/callback
+      OAUTH2_PROXY_HTTP_ADDRESS: 0.0.0.0:4180
+      OAUTH2_PROXY_UPSTREAMS: static://202
+      OAUTH2_PROXY_REVERSE_PROXY: "true"
+      OAUTH2_PROXY_SET_XAUTHREQUEST: "true"
+      OAUTH2_PROXY_SKIP_PROVIDER_BUTTON: "true"
+      OAUTH2_PROXY_COOKIE_SECURE: "true"
+      OAUTH2_PROXY_COOKIE_HTTPONLY: "true"
+      OAUTH2_PROXY_COOKIE_SAMESITE: lax
+      OAUTH2_PROXY_PASS_ACCESS_TOKEN: "false"
+      OAUTH2_PROXY_OIDC_GROUPS_CLAIM: groups
+      OAUTH2_PROXY_SCOPE: "openid profile email groups"
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
+    expose:
+      - "4180"
+    networks: [edge]
+
+  nginx:
+    image: ${NGINX_IMAGE:-nginx:alpine}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/tls:/etc/nginx/tls:ro
+    depends_on:
+      app:
+        condition: service_healthy
+      auth-proxy:
+        condition: service_started
+    networks: [edge, backend]
+
+networks:
+  edge:
+  backend:
+    internal: true
+
+volumes:
+  postgres_data:
+  workbench_data:

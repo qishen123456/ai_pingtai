@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, "fix/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run backend tests
+        run: python -m pytest backend/tests -q
+
+      - name: Verify empty-database Alembic migration
+        env:
+          DATABASE_URL: sqlite:///./data/ci_migration.db
+        run: |
+          mkdir -p data
+          alembic upgrade head
+          python - <<'PY'
+          import os
+          from sqlalchemy import create_engine, inspect
+          engine = create_engine(os.environ["DATABASE_URL"])
+          inspector = inspect(engine)
+          assert inspector.has_table("alembic_version"), "missing alembic_version"
+          required = {
+              "app_registry", "import_batches", "problem_records", "pm_projects",
+              "pm_project_milestones", "pm_project_risks", "standard_parts",
+              "standard_bom_runs", "audit_events",
+          }
+          missing = required - set(inspector.get_table_names())
+          assert not missing, f"missing migrated tables: {sorted(missing)}"
+          print("Alembic bootstrap migration created all expected tables")
+          PY
+
+      - name: Compile Python modules
+        run: python -m compileall -q backend
+
+  frontend-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          while IFS= read -r file; do
+            node --check "$file"
+          done < <(find frontend/js -type f -name '*.js' -print)
