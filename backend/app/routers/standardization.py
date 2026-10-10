@@ -190,7 +190,9 @@ def search_similar(payload: SimilarityRequest, db: Session = Depends(get_db)):
     scored.sort(key=lambda item: (item["similarity"], item["is_preferred"], item["part_no"]), reverse=True)
     return {"query": payload.query, "items": scored[:payload.limit],
             "method": "deterministic_text_similarity",
-            "notice": "结果由本地文本相似度规则生成，不是大模型结论；替代物料须经工程师复核。"}
+            "policy_version": "candidate-discovery-only",
+            "release_ready": False,
+            "notice": "结果由本地文本相似度规则生成，不是大模型结论；替代物料只是排查候选，不能自动替换或放行，须按已批准工程规则复核。"}
 
 
 @router.post("/bom/check", status_code=status.HTTP_201_CREATED)
@@ -241,7 +243,8 @@ def check_bom(payload: BomCheckRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(run)
     return {**_run_dict(run), "results": results, "source": "local_pilot",
-            "notice": "本次校验仅使用当前门户的本地物料档案；未连接 PLM，不能作为正式量产放行结论。"}
+            "notice": "本次校验仅使用当前门户的本地物料档案；未连接 PLM，不能作为正式量产放行结论。",
+            "policy_version": "candidate-local-rules-only", "release_ready": False}
 
 
 @router.get("/bom/runs")
