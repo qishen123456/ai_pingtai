@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
+from .. import config
 from ..config import (
     APP_ENV, DATABASE_URL, MODEL_API_KEY, MODEL_GATEWAY_URL, MODEL_NAME,
     PLM_API_BASE_URL, PM_PLATFORM_URL, PROBLEM_HUB_URL, QMS_API_BASE_URL,
