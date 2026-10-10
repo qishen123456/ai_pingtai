@@ -40,6 +40,8 @@ jobs:
           EOF
       - name: Validate production Compose configuration
         run: docker compose --env-file /tmp/workbench-compose.env -f docker-compose.production.yml config --quiet
+      - name: Build application and backup image
+        run: docker build --tag ai-pingtai-workbench:ci .
       - name: Check backup script syntax
         run: bash -n scripts/backup_database.sh
       - name: Check PostgreSQL role bootstrap syntax
