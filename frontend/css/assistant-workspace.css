@@ -170,3 +170,14 @@
   .assistant-loading > span { animation:none; }
   .assistant-example { transition:none !important; }
 }
+
+.assistant-new-session { display:inline-flex; align-items:center; gap:5px; margin-left:auto; padding:6px 8px; border:1px solid #e7ecf4; border-radius:7px; color:#657894; background:#fff; font-size:9px; white-space:nowrap; }
+.assistant-new-session:hover { border-color:#cddaf0; color:#315fce; background:#f8faff; }
+.assistant-new-session svg { width:12px; height:12px; }
+.assistant-chat-head .assistant-mode-pill { margin-left:0; }
+@media (max-width:480px) {
+  .assistant-new-session { padding:5px 6px; }
+  .assistant-chat-head { gap:7px; padding:14px; }
+  .assistant-chat-head h3 { font-size:11px; }
+  .assistant-chat-head p { font-size:8px; }
+}
