@@ -157,44 +157,84 @@ window.Views.assistant = (function () {
     if (message.role === "user") {
       return '<div class="assistant-message user"><div class="assistant-message-avatar">我</div><div class="assistant-message-content"><div class="assistant-message-label">你的问题</div><p>' + esc(message.text) + '</p></div></div>';
     }
-    if (message.result.kind === "clarify") {
-      return '<div class="assistant-message response"><div class="assistant-message-avatar assistant-avatar"><span>AI</span></div><div class="assistant-message-content"><div class="assistant-message-label">需要确认业务范围 <span>入口分流预览</span></div>' +
-        '<div class="assistant-result-card"><h4>这句话可能涉及多个模块</h4><p>为了避免把问题送到错误的业务系统，请选择你想先处理的方向。这里仅进行入口识别，不会伪造业务数据答案。</p>' +
-        '<div class="assistant-route-options">' + message.result.options.map(function (key) { return '<button type="button" class="assistant-route-option" data-pick-domain="' + key + '" data-question-index="' + index + '"><span>' + esc(domains[key].label) + '</span><small>' + esc(domains[key].description) + '</small>' + UI.icon("arrow-right") + '</button>'; }).join("") + '</div></div></div></div>';
+    const result = message.result || {};
+    if (result.kind === "loading") {
+      return '<div class="assistant-message response"><div class="assistant-message-avatar assistant-avatar"><span>AI</span></div><div class="assistant-message-content"><div class="assistant-message-label">正在查询本地业务数据 <span>只读查询</span></div><div class="assistant-thinking"><span></span><div><strong>正在检索相关业务记录</strong><small>查询项目、问题经验或物料试点数据，并整理来源依据。</small></div></div></div></div>';
     }
-    const key = message.result.domain;
-    const spec = domains[key];
-    const status = moduleStatus(key);
-    const externalNote = key === "quality"
-      ? '<div class="assistant-readiness-note warning"><strong>为什么暂时不直接回答？</strong><p>需求文档中的目标需要接入 QMS 质量数据、PLM 项目 / DCP / 检测报告、飞书文档与企业模型网关。当前仓库将这些适配器标记为未实现，因此不能可靠返回实时事实。</p></div>'
-      : '<div class="assistant-readiness-note"><strong>当前可做什么</strong><p>' + esc(status.detail) + ' 当前入口仅负责分流；若需要事实型问答，后续仍需连接对应系统的数据适配器、权限校验与可追溯证据。</p></div>';
-    return '<div class="assistant-message response"><div class="assistant-message-avatar assistant-avatar"><span>AI</span></div><div class="assistant-message-content"><div class="assistant-message-label">提问分流结果 <span>非 AI 答案</span></div>' +
-      '<div class="assistant-result-card"><div class="assistant-result-top"><span class="assistant-result-kicker">RECOMMENDED WORKSPACE</span><span class="assistant-state ' + status.tone + '">' + esc(status.label) + '</span></div>' +
-      '<div class="assistant-recommended"><div class="assistant-recommended-icon">' + UI.icon(spec.icon) + '</div><div><h4>' + esc(spec.label) + '</h4><p>' + esc(spec.description) + '</p></div></div>' +
-      '<div class="assistant-intent-row"><span>分流依据</span><strong>' + esc(message.result.method) + '</strong></div>' +
-      (message.result.matched && message.result.matched.length ? '<div class="assistant-keywords"><span>识别到的词</span>' + message.result.matched.map(function (word) { return '<code>' + esc(word) + '</code>'; }).join("") + '</div>' : '') +
-      externalNote +
-      '<div class="assistant-result-actions"><button type="button" class="btn btn-primary" data-open-domain="' + key + '">' + (key === "quality" ? "查看接入状态" : (findApp(spec.route) && findApp(spec.route).entry_url ? "打开独立系统" : "进入业务工作区")) + ' ' + UI.icon("arrow-up-right") + '</button><button type="button" class="btn" data-use-scope="' + key + '">后续问题继续问这个模块</button></div></div></div></div>';
+    if (result.kind === "error") {
+      return '<div class="assistant-message response"><div class="assistant-message-avatar assistant-avatar"><span>AI</span></div><div class="assistant-message-content"><div class="assistant-message-label">查询未完成 <span>服务异常</span></div><div class="assistant-result-card"><div class="assistant-readiness-note warning"><strong>' + esc(result.message || "暂时无法完成查询") + '</strong><p>请检查连接后重试，系统没有用生成内容替代实际数据。</p></div><div class="assistant-result-actions"><button type="button" class="btn" data-retry-question="' + index + '">重试查询</button></div></div></div></div>';
+    }
+    if (result.kind === "clarify") {
+      return '<div class="assistant-message response"><div class="assistant-message-avatar assistant-avatar"><span>AI</span></div><div class="assistant-message-content"><div class="assistant-message-label">需要确认业务范围 <span>入口分流</span></div>' +
+        '<div class="assistant-result-card"><div class="assistant-result-top"><span class="assistant-result-kicker">CLARIFY INTENT</span><span class="assistant-state warning">需要补充条件</span></div><div class="assistant-recommended"><div class="assistant-recommended-icon">' + UI.icon("message-square") + '</div><div><h4>你想查询哪一类业务？</h4><p>' + esc(result.message || "请选择一个业务域，继续查询。") + '</p></div></div>' +
+        '<div class="assistant-route-options">' + (result.options || []).map(function (item) {
+          const key = typeof item === "string" ? item : item.key;
+          const label = typeof item === "string" ? (domains[item] ? domains[item].label : item) : item.label;
+          const description = typeof item === "string" ? (domains[item] ? domains[item].description : "") : item.description;
+          return '<button type="button" class="assistant-route-option" data-pick-domain="' + esc(key) + '" data-question-index="' + index + '"><span>' + esc(label) + '</span><small>' + esc(description) + '</small>' + UI.icon("arrow-right") + '</button>';
+        }).join("") + '</div></div></div></div>';
+    }
+
+    const domainKey = result.domain || "quality";
+    const spec = domains[domainKey] || { label: result.domain_label || "业务查询", description: "" };
+    const statusTone = result.status === "no_data" ? "warning" : "good";
+    const metricHtml = (result.metrics || []).map(function (metric) {
+      return '<div class="assistant-answer-metric"><span>' + esc(metric.label) + '</span><strong>' + esc(metric.value) + '</strong><small>' + esc(metric.detail || "") + '</small></div>';
+    }).join("");
+    const groupsHtml = (result.groups || []).map(function (group) {
+      const itemsHtml = (group.items || []).map(function (item) {
+        const fields = (item.fields || []).map(function (field) {
+          return '<span class="assistant-record-field"><small>' + esc(field.label) + '</small><strong>' + esc(field.value) + '</strong></span>';
+        }).join("");
+        return '<article class="assistant-record"><div class="assistant-record-main"><div><h5>' + esc(item.title) + '</h5><p>' + esc(item.subtitle || "") + '</p></div>' +
+          '<span class="assistant-record-status ' + (String(item.status || "").includes("逾期") || String(item.status || "").includes("阻塞") ? "warning" : "") + '">' + esc(item.status || "记录") + '</span></div>' +
+          (fields ? '<div class="assistant-record-fields">' + fields + '</div>' : '') +
+          (item.detail ? '<p class="assistant-record-detail">' + esc(item.detail) + '</p>' : '') +
+          '<footer><span>' + esc(item.source_name || group.source || "本地试点数据") + '</span><code>' + esc(item.source_id || "") + '</code></footer></article>';
+      }).join("");
+      return '<section class="assistant-answer-group"><header><div><h4>' + esc(group.title) + '</h4><p>' + esc(group.source || "本地试点数据") + '</p></div><span>' + esc(group.count || 0) + ' 条</span></header>' +
+        (itemsHtml || '<div class="assistant-no-records">当前条件下没有匹配记录。</div>') + '</section>';
+    }).join("");
+    const caveatsHtml = (result.caveats || []).map(function (item) { return '<li>' + esc(item) + '</li>'; }).join("");
+    const evidenceHtml = (result.evidence || []).length
+      ? '<details class="assistant-evidence"><summary>查看数据来源与记录标识（' + esc(result.evidence_count || result.evidence.length) + ' 条）</summary><div>' +
+        result.evidence.slice(0, 12).map(function (item) { return '<p><strong>' + esc(item.source_system) + '</strong><code>' + esc(item.record_id) + '</code><small>' + esc(item.updated_at) + '</small></p>'; }).join("") +
+        ((result.evidence.length > 12) ? '<small>仅展示前 12 条引用，完整明细见上方结果卡片。</small>' : '') + '</div></details>'
+      : "";
+    return '<div class="assistant-message response"><div class="assistant-message-avatar assistant-avatar"><span>AI</span></div><div class="assistant-message-content"><div class="assistant-message-label">本地数据查询结果 <span>' + (result.query_mode === "read_only_local_pilot" ? "只读试点查询" : "查询结果") + '</span></div>' +
+      '<div class="assistant-result-card assistant-live-result"><div class="assistant-result-top"><span class="assistant-result-kicker">QUERY RESULT / ' + esc(result.intent || "READ_ONLY") + '</span><span class="assistant-state ' + statusTone + '">' + (result.status === "no_data" ? "没有匹配记录" : "查询完成") + '</span></div>' +
+      '<div class="assistant-answer-intro"><div class="assistant-recommended-icon">' + UI.icon(spec.icon || "sparkles") + '</div><div><h4>' + esc(result.intent_label || spec.label) + '</h4><p>' + esc(result.answer || "") + '</p></div></div>' +
+      '<div class="assistant-answer-source-line"><span>查询范围</span><strong>' + esc(spec.label) + '</strong><span>业务条件</span><strong>' + esc((result.filters && result.filters.product_model) || "未限定机型") + ' · ' + esc((result.filters && result.filters.time_range) || "未限定时间") + '</strong></div>' +
+      (metricHtml ? '<div class="assistant-answer-metrics">' + metricHtml + '</div>' : '') +
+      '<div class="assistant-answer-groups">' + groupsHtml + '</div>' +
+      (caveatsHtml ? '<div class="assistant-caveats"><strong>' + UI.icon("shield-check") + ' 使用说明与数据边界</strong><ul>' + caveatsHtml + '</ul></div>' : '') +
+      evidenceHtml +
+      '<div class="assistant-result-actions"><button type="button" class="btn btn-primary" data-open-domain="' + esc(domainKey) + '">' + (domainKey === "quality" ? "继续查看质量工作区" : "进入对应业务工作区") + ' ' + UI.icon("arrow-up-right") + '</button><button type="button" class="btn" data-use-scope="' + esc(domainKey) + '">后续问题继续问这个模块</button></div>' +
+      ((result.suggested_questions || []).length ? '<div class="assistant-suggestions"><span>你还可以继续问</span>' + result.suggested_questions.slice(0, 3).map(function (question) { return '<button type="button" data-suggest-question="' + esc(question) + '" data-suggest-domain="' + esc(domainKey) + '">' + esc(question) + '</button>'; }).join("") + '</div>' : '') +
+      '</div></div></div>';
   }
 
   function renderMessages() {
     const host = state.el.querySelector("#assistantConversation");
     if (!host) return;
     if (!state.messages.length) {
-      host.innerHTML = '<div class="assistant-welcome"><div class="assistant-welcome-mark">' + UI.icon("sparkles") + '</div><span class="assistant-welcome-kicker">ONE ENTRY · INDEPENDENT SYSTEMS</span><h3>你想了解什么？</h3><p>直接用日常语言提问。统一入口先帮助你明确业务方向，再进入相应系统；真实问答能力将随数据接口和模型网关接入启用。</p>' +
+      host.innerHTML = '<div class="assistant-welcome"><div class="assistant-welcome-mark">' + UI.icon("sparkles") + '</div><span class="assistant-welcome-kicker">ONE ENTRY · INDEPENDENT SYSTEMS</span><h3>你想了解什么？</h3><p>提问后会优先查询门户当前可用的本地试点数据。真实 QMS、PLM、飞书与独立系统数据将在连接器接通后逐步纳入。</p>' +
         '<div class="assistant-example-grid">' + examples.map(function (item, index) { return '<button type="button" class="assistant-example" data-example="' + index + '"><span>' + esc(item.tag) + '</span><strong>' + esc(item.text) + '</strong>' + UI.icon("arrow-up-right") + '</button>'; }).join("") + '</div></div>';
     } else {
       host.innerHTML = '<div class="assistant-thread">' + state.messages.map(renderMessage).join("") + '</div>';
       host.scrollTop = host.scrollHeight;
       host.querySelectorAll("[data-pick-domain]").forEach(function (button) {
-        button.addEventListener("click", function () {
+        button.addEventListener("click", async function () {
           const index = Number(button.dataset.questionIndex);
+          const question = state.messages[index - 1] && state.messages[index - 1].role === "user" ? state.messages[index - 1].text : "";
           const key = button.dataset.pickDomain;
-          if (state.messages[index] && state.messages[index].result) {
-            state.messages[index].result = { kind: "route", domain: key, method: "你确认了业务域", score: 1, matched: [] };
-            // Replace the clarification prompt in place; do not duplicate the same answer card.
-          }
+          if (!question) return;
+          state.scope = key;
+          const select = state.el.querySelector("#assistantScope");
+          if (select) select.value = key;
+          state.messages[index].result = { kind: "loading" };
           renderMessages();
+          await runQuery(question, key, index);
         });
       });
       host.querySelectorAll("[data-open-domain]").forEach(function (button) {
@@ -205,7 +245,27 @@ window.Views.assistant = (function () {
           state.scope = button.dataset.useScope;
           const select = state.el.querySelector("#assistantScope");
           if (select) select.value = state.scope;
-          UI.toast("后续问题将优先分流到“" + domains[state.scope].label + "”。", "success");
+          UI.toast("后续问题将优先查询“" + domains[state.scope].label + "”的数据。", "success");
+        });
+      });
+      host.querySelectorAll("[data-suggest-question]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          state.scope = button.dataset.suggestDomain || "auto";
+          const select = state.el.querySelector("#assistantScope");
+          const input = state.el.querySelector("#assistantInput");
+          if (select) select.value = state.scope;
+          if (input) { input.value = button.dataset.suggestQuestion; input.focus(); }
+        });
+      });
+      host.querySelectorAll("[data-retry-question]").forEach(function (button) {
+        button.addEventListener("click", async function () {
+          const index = Number(button.dataset.retryQuestion);
+          const userMessage = state.messages[index - 1];
+          if (userMessage && userMessage.role === "user") {
+            state.messages[index].result = { kind: "loading" };
+            renderMessages();
+            await runQuery(userMessage.text, state.scope, index);
+          }
         });
       });
     }
@@ -223,20 +283,44 @@ window.Views.assistant = (function () {
     });
   }
 
-  function submitQuestion() {
+  async function runQuery(question, domain, replaceIndex) {
+    const input = state.el.querySelector("#assistantInput");
+    try {
+      const response = await api.post("/api/assistant/query", {
+        question: question,
+        domain: domain || "auto",
+        context: state.context || {}
+      });
+      if (replaceIndex !== undefined && state.messages[replaceIndex]) {
+        state.messages[replaceIndex].result = response;
+      } else {
+        state.messages.push({ role: "assistant", result: response });
+      }
+      if (response.context) state.context = response.context;
+    } catch (error) {
+      const result = { kind: "error", status: "source_unavailable", message: error.message || "统一问答服务暂时不可用" };
+      if (replaceIndex !== undefined && state.messages[replaceIndex]) state.messages[replaceIndex].result = result;
+      else state.messages.push({ role: "assistant", result: result });
+    }
+    if (input) input.value = "";
+    state.question = "";
+    renderMessages();
+  }
+
+  async function submitQuestion() {
     const input = state.el.querySelector("#assistantInput");
     const question = (input ? input.value : state.question).trim();
     if (!question) {
-      UI.toast("先输入你想了解的问题。", "warn");
+      UI.toast("先输入你想查询的问题。", "warn");
       if (input) input.focus();
       return;
     }
     state.question = question;
     state.messages.push({ role: "user", text: question });
-    state.messages.push({ role: "assistant", result: resolveRoute(question) });
-    if (input) input.value = "";
-    state.question = "";
+    state.messages.push({ role: "assistant", result: { kind: "loading" } });
+    const responseIndex = state.messages.length - 1;
     renderMessages();
+    await runQuery(question, state.scope, responseIndex);
   }
 
   function renderPage() {
@@ -260,6 +344,7 @@ window.Views.assistant = (function () {
     el.querySelector("#assistantNewSession").addEventListener("click", function () {
       state.messages = [];
       state.scope = "auto";
+      state.context = {};
       const select = el.querySelector("#assistantScope");
       const input = el.querySelector("#assistantInput");
       if (select) select.value = "auto";
@@ -303,6 +388,7 @@ window.Views.assistant = (function () {
     state.el = el;
     state.messages = [];
     state.scope = "auto";
+    state.context = {};
     state.integrations = [];
     state.apps = window.PLATFORM_APPS || [];
     el.innerHTML = '<div class="assistant-loading"><span></span><div><strong>正在读取问答入口接入状态</strong><small>检查模型网关与业务系统适配器配置…</small></div></div>';
