@@ -357,3 +357,19 @@ def test_truncated_workbook_is_visible_and_cannot_be_confirmed(client):
     })
     assert response.status_code == 422
     assert "禁止确认" in response.json()["detail"]
+
+
+
+def test_row_hash_policy_can_preserve_identical_occurrences():
+    from backend.app.models import make_row_hash
+
+    values = {"description": "同一内容", "owner": "责任人甲", "model": "MODEL-1"}
+    first = make_row_hash("问题清单", 2, values, batch_id=10, mode="content")
+    same_content_other_row = make_row_hash("Sheet2", 99, values, batch_id=11, mode="content")
+    assert first == same_content_other_row
+
+    first_occurrence = make_row_hash("问题清单", 2, values, batch_id=10, mode="row_instance")
+    another_occurrence = make_row_hash("问题清单", 3, values, batch_id=10, mode="row_instance")
+    another_batch = make_row_hash("问题清单", 2, values, batch_id=11, mode="row_instance")
+    assert first_occurrence != another_occurrence
+    assert first_occurrence != another_batch
