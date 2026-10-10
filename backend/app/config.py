@@ -63,6 +63,7 @@ RECOGNIZER_ENGINE = os.getenv("RECOGNIZER_ENGINE", "rule").strip().lower()
 # Business-owned policy: remain explicitly unconfigured until the DCP process owner signs off.
 DCP_GATE_POLICY = os.getenv("DCP_GATE_POLICY", "unconfigured").strip().lower()
 BOM_POLICY_VERSION = os.getenv("BOM_POLICY_VERSION", "unconfigured").strip()
+IMPORT_DEDUPE_POLICY = os.getenv("IMPORT_DEDUPE_POLICY", "unconfigured").strip().lower()
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").strip().upper()
 METRICS_ENABLED = os.getenv("METRICS_ENABLED", "false").strip().lower() == "true"
