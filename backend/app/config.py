@@ -41,6 +41,15 @@ AUTH_PM_GROUPS = os.getenv("AUTH_PM_GROUPS", "").strip()
 AUTH_ENGINEERING_GROUPS = os.getenv("AUTH_ENGINEERING_GROUPS", "").strip()
 AUTH_VIEWER_GROUPS = os.getenv("AUTH_VIEWER_GROUPS", "").strip()
 
+# Identity gateway values are validated in production; secrets should be injected by a secret manager.
+OIDC_ISSUER_URL = os.getenv("OIDC_ISSUER_URL", "").strip()
+OIDC_CLIENT_ID = os.getenv("OIDC_CLIENT_ID", "").strip()
+OIDC_CLIENT_SECRET = os.getenv("OIDC_CLIENT_SECRET", "").strip()
+OAUTH2_PROXY_COOKIE_SECRET = os.getenv("OAUTH2_PROXY_COOKIE_SECRET", "").strip()
+OIDC_EMAIL_DOMAINS = os.getenv("OIDC_EMAIL_DOMAINS", "").strip()
+OAUTH2_PROXY_IMAGE = os.getenv("OAUTH2_PROXY_IMAGE", "").strip()
+SERVER_NAME = os.getenv("SERVER_NAME", "").strip()
+
 # External system and model endpoints intentionally remain blank until owners provide real values.
 PROBLEM_HUB_URL = os.getenv("PROBLEM_HUB_URL", "").strip()
 PM_PLATFORM_URL = os.getenv("PM_PLATFORM_URL", "").strip()
