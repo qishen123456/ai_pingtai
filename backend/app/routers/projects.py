@@ -235,7 +235,22 @@ def list_projects(
     page = max(1, page)
     page_size = min(max(1, page_size), 200)
     items = query.order_by(PMProject.updated_at.desc(), PMProject.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    return {"items": [_project_dict(db, item) for item in items], "total": total,
+    project_ids = [item.id for item in items]
+    if project_ids:
+        milestones = db.query(PMProjectMilestone).filter(
+            PMProjectMilestone.project_id.in_(project_ids)
+        ).order_by(PMProjectMilestone.planned_date.asc(), PMProjectMilestone.id.asc()).all()
+        risks = db.query(PMProjectRisk).filter(
+            PMProjectRisk.project_id.in_(project_ids)
+        ).order_by(PMProjectRisk.id.desc()).all()
+    else:
+        milestones, risks = [], []
+    milestone_map, risk_map = _children_by_project(milestones, risks)
+    project_dicts = [
+        _project_dict_with_children(item, milestone_map.get(item.id, []), risk_map.get(item.id, []))
+        for item in items
+    ]
+    return {"items": project_dicts, "total": total,
             "page": page, "page_size": page_size, "source": "local_pilot"}
 
 
