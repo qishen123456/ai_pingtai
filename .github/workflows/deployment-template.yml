@@ -20,7 +20,7 @@ jobs:
         shell: bash
         run: |
           cat > /tmp/workbench-compose.env <<'EOF'
-          DB_PASSWORD=CiUrlSafePassword_2026
+          DB_PASSWORD=CiUrlSafeDatabasePassword_2026
           BACKUP_DB_PASSWORD=CiBackupUrlSafePassword_2026
           DCP_GATE_POLICY=sequential
           BOM_POLICY_VERSION=ci-approved-baseline
@@ -42,6 +42,8 @@ jobs:
         run: docker compose --env-file /tmp/workbench-compose.env -f docker-compose.production.yml config --quiet
       - name: Build application and backup image
         run: docker build --tag ai-pingtai-workbench:ci .
+      - name: Exercise production preflight with CI-only placeholders
+        run: docker run --rm --env-file /tmp/workbench-compose.env ai-pingtai-workbench:ci bash /app/scripts/validate_production_env.sh
       - name: Check backup script syntax
         run: bash -n scripts/backup_database.sh
       - name: Check PostgreSQL role bootstrap syntax
