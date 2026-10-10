@@ -15,7 +15,7 @@ from .config import APP_ENV, FRONTEND_DIR, LOG_LEVEL, METRICS_ENABLED
 from .db import init_db
 from .security import authenticate_request, authorize_request, validate_production_configuration
 from .services.audit import record_audit_event
-from .routers import dashboard, imports, records, apps, projects, standardization, system
+from .routers import dashboard, imports, records, apps, projects, standardization, system, assistant
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -145,6 +145,7 @@ app.include_router(records.router)
 app.include_router(apps.router)
 app.include_router(projects.router)
 app.include_router(standardization.router)
+app.include_router(assistant.router)
 
 
 @app.get("/metrics", include_in_schema=False)
