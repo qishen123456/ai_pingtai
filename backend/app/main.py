@@ -9,6 +9,7 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
+from prometheus_client import Counter, Histogram
 
 from .config import APP_ENV, FRONTEND_DIR, LOG_LEVEL, METRICS_ENABLED
 from .db import init_db
@@ -21,6 +22,27 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 logger = logging.getLogger("workbench")
+HTTP_REQUESTS = Counter(
+    "workbench_http_requests_total", "HTTP requests handled by the workbench",
+    ("method", "route_group", "status_code"),
+)
+HTTP_REQUEST_DURATION = Histogram(
+    "workbench_http_request_duration_seconds", "HTTP request duration in seconds",
+    ("method", "route_group"),
+)
+
+
+def _route_group(path: str) -> str:
+    if path in {"/health/live", "/health/ready"}:
+        return path
+    for prefix in ("/api/imports", "/api/projects", "/api/standardization", "/api/apps", "/api/system"):
+        if path.startswith(prefix):
+            return prefix
+    if path == "/metrics":
+        return "/metrics"
+    if path.startswith(("/css/", "/js/", "/samples/")):
+        return "/static"
+    return "other"
 
 
 @contextlib.asynccontextmanager
@@ -100,6 +122,9 @@ async def request_context_security_audit(request: Request, call_next):
                 )
             except Exception:
                 logger.exception("audit_write_failed request_id=%s path=%s", request_id, request.url.path)
+        route_group = _route_group(request.url.path)
+        HTTP_REQUESTS.labels(request.method, route_group, str(status_code)).inc()
+        HTTP_REQUEST_DURATION.labels(request.method, route_group).observe(elapsed)
         if request.url.path not in {"/health/live", "/health/ready"}:
             logger.info(
                 "request_complete request_id=%s method=%s path=%s status=%s actor=%s duration_ms=%.1f",
