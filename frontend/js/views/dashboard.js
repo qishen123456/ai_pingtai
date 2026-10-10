@@ -41,7 +41,7 @@ window.Views.dashboard = {
       '<section class="command-hero"><div class="hero-grid"></div><div class="hero-glow hero-glow-a"></div><div class="hero-glow hero-glow-b"></div>' +
         '<div class="command-copy"><div class="eyebrow"><span></span>研发智能化 · 统一门户</div><h1>让每个业务场景，<br><b>拥有自己的 AI 工作空间。</b></h1>' +
         '<p>一个清晰的入口，连接已运行的业务系统与正在建设的智能模块。所有状态都以可验证的部署和数据为准。</p>' +
-        '<div class="hero-actions"><button class="hero-button" id="goAppCenter">查看应用地图 ' + UI.icon('arrowRight') + '</button><button class="hero-link" id="goImport">' + UI.icon('upload') + ' 进入问题经验试点</button></div></div>' +
+        '<div class="hero-actions"><button class="hero-button" id="goAsk">统一提问 ' + UI.icon('arrowRight') + '</button><button class="hero-link" id="goAppCenter">' + UI.icon('arrowRight') + ' 查看业务应用地图</button></div></div>' +
         '<div class="command-signal"><div class="signal-ring ring-1"></div><div class="signal-ring ring-2"></div><div class="signal-ring ring-3"></div><div class="signal-core"><span>AI</span><small>PLATFORM</small></div>' +
         '<div class="signal-label label-top">应用注册<br><b>' + (platform.registered_apps || apps.length) + '</b> 个</div><div class="signal-label label-bottom">可用入口<br><b>' + active.length + '</b> 个</div></div></section>' +
       '<section class="metric-grid">' + stats + '</section>' +
@@ -49,8 +49,8 @@ window.Views.dashboard = {
       '<aside class="panel architecture-panel"><div class="panel-kicker">PLATFORM PULSE</div><h2>平台运行边界</h2><div class="pulse-rule"><span class="pulse-dot"></span><div><strong>已验证能力优先</strong><p>问题经验导入试点正在本门户运行。</p></div></div><div class="pulse-rule"><span class="pulse-dot amber"></span><div><strong>独立系统独立演进</strong><p>项目管理和企业版问题经验通过部署入口接入。</p></div></div><div class="pulse-rule"><span class="pulse-dot slate"></span><div><strong>AI 能力受控上线</strong><p>模型、数据源和规则均需通过配置与验收后启用。</p></div></div></aside></section>' +
       '<section class="section-heading"><div><span class="panel-kicker">APPLICATION MAP</span><h2>业务应用地图</h2></div><p>每个模块保持独立业务边界，共享平台规范与进入路径。</p></section><section class="mission-grid">' + appCards + '</section>';
 
+    el.querySelector('#goAsk').addEventListener('click', () => Router.go('assistant'));
     el.querySelector('#goAppCenter').addEventListener('click', () => Router.go('app_center'));
-    el.querySelector('#goImport').addEventListener('click', () => Router.go('problems', 'import'));
     el.querySelectorAll('[data-go]').forEach((node) => node.addEventListener('click', () => {
       if (node.dataset.externalUrl) window.open(node.dataset.externalUrl, '_blank', 'noopener');
       else Router.go(node.dataset.go);
