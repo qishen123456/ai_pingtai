@@ -489,3 +489,8 @@
   .pm-loading-mark { animation: none; }
   .pm-project-card, .pm-risk-card { transition: none !important; }
 }
+
+.pm-gate-visible-count { display: inline-block; margin-left: 7px; color: #a0aabd; font-size: 9px; font-weight: 500; }
+@media (max-width: 620px) {
+  .pm-gate-visible-count { display: block; margin: 5px 0 0; }
+}
