@@ -153,7 +153,7 @@ window.Views.projects = (function () {
     return '<section class="pm-kpis" aria-label="项目组合关键指标">' +
       '<div class="pm-kpi pm-kpi-primary"><div class="pm-kpi-primary-head"><span>项目组合规模</span><span class="pm-kpi-eyebrow">PORTFOLIO</span></div>' +
         '<div class="pm-kpi-primary-value"><strong>' + (stats.total_projects || 0) + '</strong><span>个项目</span></div>' +
-        '<div class="pm-kpi-primary-foot"><span><i class="pm-dot blue"></i>' + activeProjects + ' 个进行中</span><span>' + (stats.total_projects ? Math.round((Number(stats.total_projects) - activeProjects) / Number(stats.total_projects) * 100) : 0) + '% 已完成或暂停</span></div></div>' +
+        '<div class="pm-kpi-primary-foot"><span><i class="pm-dot blue"></i>' + activeProjects + ' 个未完成</span><span>' + Math.max(0, Number(stats.total_projects || 0) - activeProjects) + ' 个已完成</span></div></div>' +
       renderMiniMetric("风险项目", stats.at_risk || 0, "有风险或已阻塞", Number(stats.at_risk || 0) ? "warning" : "quiet") +
       renderMiniMetric("未关闭风险", stats.open_risks || 0, "待处理与跟进中", Number(stats.open_risks || 0) ? "danger" : "quiet") +
       renderMiniMetric("逾期风险", stats.overdue_risks || 0, "超过跟进截止日期", Number(stats.overdue_risks || 0) ? "danger" : "quiet") +
@@ -386,11 +386,12 @@ window.Views.projects = (function () {
         '<div class="pm-risk-column-body">' + (items.length ? items.map(function (risk) {
           const overdueFlag = risk.overdue ? '<span class="pm-risk-overdue"><i></i>逾期</span>' : '';
           const dueText = risk.due_date ? shortDate(risk.due_date) : "未设置截止日";
-          const action = risk.status === "open"
+          const action = (risk.status === "open"
             ? '<button type="button" class="btn btn-sm btn-primary" data-risk-status="' + risk.id + '" data-next-status="monitoring">开始跟进</button>'
             : risk.status === "monitoring"
               ? '<button type="button" class="btn btn-sm btn-primary" data-risk-status="' + risk.id + '" data-next-status="resolved">标记已解决</button>'
-              : '<button type="button" class="btn btn-sm" data-risk-status="' + risk.id + '" data-next-status="open">重新打开</button>';
+              : '<button type="button" class="btn btn-sm" data-risk-status="' + risk.id + '" data-next-status="open">重新打开</button>') +
+            '<button type="button" class="btn btn-sm" data-edit-risk="' + risk.id + '">编辑</button>';
           return '<article class="pm-risk-card ' + riskClass(risk.level) + '"><div class="pm-risk-card-top"><span class="pm-risk-level ' + riskClass(risk.level) + '">' + esc(riskLabels[risk.level] || risk.level) + '风险</span>' + overdueFlag + '</div>' +
             '<h5>' + esc(risk.title) + '</h5><div class="pm-risk-project"><span>' + esc(risk.project_code) + '</span><b>' + esc(risk.project_name) + '</b></div>' +
             '<p class="pm-risk-mitigation">' + esc(risk.mitigation || "尚未填写应对措施。建议明确下一步动作与完成标准。") + '</p>' +
@@ -442,6 +443,14 @@ window.Views.projects = (function () {
         await patchRisk(button.dataset.riskStatus, { status: button.dataset.nextStatus });
       });
     });
+    panel.querySelectorAll("[data-edit-risk]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        const riskId = Number(button.dataset.editRisk);
+        const project = state.projects.find(function (item) { return item.risks.some(function (riskItem) { return riskItem.id === riskId; }); });
+        const risk = project && project.risks.find(function (riskItem) { return riskItem.id === riskId; });
+        if (project && risk) showRiskForm(project, risk);
+      });
+    });
   }
 
   async function patchRisk(id, body) {
@@ -462,8 +471,11 @@ window.Views.projects = (function () {
     const openRisks = risks.filter(function (risk) { return risk.status !== "resolved"; });
     const overdueRisks = openRisks.filter(function (risk) { return risk.overdue; });
     const overdueGates = gates.filter(function (milestone) { return gateVisualState(milestone) === "overdue"; });
+    const horizon = new Date();
+    horizon.setDate(horizon.getDate() + 14);
+    const horizonLocal = new Date(horizon.getTime() - horizon.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
     const nextGates = gates.filter(function (milestone) {
-      return milestone.status === "pending" && milestone.planned_date >= todayISO();
+      return milestone.status === "pending" && milestone.planned_date >= todayISO() && milestone.planned_date <= horizonLocal;
     }).sort(function (a, b) { return String(a.planned_date).localeCompare(String(b.planned_date)); }).slice(0, 5);
     const atRiskProjects = projects.filter(function (project) { return project.status === "at_risk" || project.status === "blocked"; });
     const attentionHtml = overdueRisks.slice(0, 5).map(function (risk) {
@@ -705,18 +717,19 @@ window.Views.projects = (function () {
     });
   }
 
-  function showRiskForm(project) {
+  function showRiskForm(project, risk) {
+    const editing = !!risk;
     const host = document.getElementById("modalHost");
     host.innerHTML = '<div class="modal-mask pm-modal-backdrop"><section class="modal-box pm-form-modal" role="dialog" aria-modal="true" aria-labelledby="pmRiskFormTitle">' +
-      '<header class="pm-form-head"><div><span class="pm-section-kicker">RISK / MITIGATION</span><h2 id="pmRiskFormTitle">登记项目风险</h2><p>请明确风险等级、责任人与截止日期，避免仅留下问题描述而没有下一步措施。</p></div><button type="button" class="pm-icon-button" data-pm-close aria-label="关闭">×</button></header>' +
+      '<header class="pm-form-head"><div><span class="pm-section-kicker">RISK / MITIGATION</span><h2 id="pmRiskFormTitle">' + (editing ? "编辑风险与措施" : "登记项目风险") + '</h2><p>风险记录应具备责任人、截止日期和明确的下一步动作。</p></div><button type="button" class="pm-icon-button" data-pm-close aria-label="关闭">×</button></header>' +
       '<div class="modal-body"><div class="pm-linked-project"><span class="pm-linked-project-code">' + esc(project.code) + '</span><strong>' + esc(project.name) + '</strong><span>' + esc(project.stage) + '阶段</span></div>' +
-      '<div class="form-group"><label class="form-label" for="rfTitle">风险事项 <span class="required">*</span></label><input class="input" id="rfTitle" maxlength="240" placeholder="描述可能影响交付、质量或成本的风险"></div>' +
-      '<div class="pm-form-grid"><div class="form-group"><label class="form-label" for="rfLevel">风险等级</label><select class="input" id="rfLevel"><option value="high">高风险</option><option value="medium" selected>中风险</option><option value="low">低风险</option></select></div>' +
-      '<div class="form-group"><label class="form-label" for="rfOwner">责任人</label><input class="input" id="rfOwner" value="待指定" maxlength="80" placeholder="明确跟进责任人"></div>' +
-      '<div class="form-group"><label class="form-label" for="rfDate">跟进截止日期</label><input class="input" type="date" id="rfDate"></div>' +
-      '<div class="form-group pm-form-full"><label class="form-label" for="rfMitigation">应对措施 / 下一步动作</label><textarea class="input" rows="4" id="rfMitigation" maxlength="3000" placeholder="写清缓解措施、依赖条件、下一步动作与完成标准"></textarea></div></div>' +
-      '<div class="pm-form-footnote"><span>' + UI.icon("target") + '</span><p>风险创建后进入“待处理”状态，可进一步转入跟进中，或在确认解决后关闭。</p></div></div>' +
-      '<footer class="modal-foot"><button type="button" class="btn" data-pm-close>取消</button><button type="button" class="btn btn-primary" id="rfSave">保存风险</button></footer></section></div>';
+      '<div class="form-group"><label class="form-label" for="rfTitle">风险事项 <span class="required">*</span></label><input class="input" id="rfTitle" maxlength="240" placeholder="描述可能影响交付、质量或成本的风险" value="' + esc(risk ? risk.title : "") + '"></div>' +
+      '<div class="pm-form-grid"><div class="form-group"><label class="form-label" for="rfLevel">风险等级</label><select class="input" id="rfLevel"><option value="high"' + (risk && risk.level === "high" ? " selected" : "") + '>高风险</option><option value="medium"' + (!risk || risk.level === "medium" ? " selected" : "") + '>中风险</option><option value="low"' + (risk && risk.level === "low" ? " selected" : "") + '>低风险</option></select></div>' +
+      '<div class="form-group"><label class="form-label" for="rfOwner">责任人</label><input class="input" id="rfOwner" value="' + esc(risk ? risk.owner : "待指定") + '" maxlength="80" placeholder="明确跟进责任人"></div>' +
+      '<div class="form-group"><label class="form-label" for="rfDate">跟进截止日期</label><input class="input" type="date" id="rfDate" value="' + esc(risk ? risk.due_date || "" : "") + '"></div>' +
+      '<div class="form-group pm-form-full"><label class="form-label" for="rfMitigation">应对措施 / 下一步动作</label><textarea class="input" rows="4" id="rfMitigation" maxlength="3000" placeholder="写清缓解措施、依赖条件、下一步动作与完成标准">' + esc(risk ? risk.mitigation || "" : "") + '</textarea></div></div>' +
+      '<div class="pm-form-footnote"><span>' + UI.icon("target") + '</span><p>' + (editing ? '编辑会更新现有风险记录，不会重置其当前闭环状态。' : '风险创建后进入“待处理”状态，可进一步转入跟进中，或在确认解决后关闭。') + '</p></div></div>' +
+      '<footer class="modal-foot"><button type="button" class="btn" data-pm-close>取消</button><button type="button" class="btn btn-primary" id="rfSave">' + (editing ? "保存修改" : "保存风险") + '</button></footer></section></div>';
     bindPmModal(host, "#rfTitle");
     host.querySelector("#rfSave").addEventListener("click", async function () {
       const titleText = host.querySelector("#rfTitle").value.trim();
@@ -732,9 +745,9 @@ window.Views.projects = (function () {
       save.disabled = true;
       save.textContent = "保存中…";
       try {
-        await api.post("/api/projects/" + project.id + "/risks", payload);
+        await (editing ? api.patch("/api/projects/risks/" + risk.id, payload) : api.post("/api/projects/" + project.id + "/risks", payload));
         closePmModal(host);
-        UI.toast("风险已登记", "success");
+        UI.toast(editing ? "风险记录已更新" : "风险已登记", "success");
         state.tab = "risks";
         await refresh();
       } catch (error) {
@@ -742,7 +755,7 @@ window.Views.projects = (function () {
       } finally {
         if (host.querySelector("#rfSave")) {
           save.disabled = false;
-          save.textContent = "保存风险";
+          save.textContent = editing ? "保存修改" : "保存风险";
         }
       }
     });
