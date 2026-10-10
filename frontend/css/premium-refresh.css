@@ -843,3 +843,13 @@ code {
   .metric-card:not(.metric-1) strong { font-size: 19px; }
   .metric-1 strong { font-size: 30px; }
 }
+
+/* Small Bento tiles share a compact horizontal value layout. */
+.metric-card:not(.metric-1) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 12px;
+  row-gap: 3px;
+}
