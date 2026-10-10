@@ -37,7 +37,33 @@ x-workbench-environment: &workbench-environment
   MODEL_NAME: ${MODEL_NAME:-}
   MODEL_API_KEY: ${MODEL_API_KEY:-}
 
+x-production-validation-environment: &production-validation-environment
+  DB_PASSWORD: ${DB_PASSWORD:?Set a strong URL-safe DB_PASSWORD}
+  BACKUP_DB_PASSWORD: ${BACKUP_DB_PASSWORD:?Set a strong URL-safe read-only backup role password}
+  OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:?Set the enterprise IdP issuer URL}
+  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:?Set the enterprise IdP client ID}
+  OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:?Set the enterprise IdP client secret}
+  OAUTH2_PROXY_COOKIE_SECRET: ${OAUTH2_PROXY_COOKIE_SECRET:?Generate a strong cookie secret}
+  OIDC_EMAIL_DOMAINS: ${OIDC_EMAIL_DOMAINS:?Set approved company email domains}
+  OAUTH2_PROXY_IMAGE: ${OAUTH2_PROXY_IMAGE:?Pin an organization-approved oauth2-proxy image}
+  SERVER_NAME: ${SERVER_NAME:?Set the public hostname}
+  AUTH_ADMIN_GROUPS: ${AUTH_ADMIN_GROUPS:?Map actual IdP admin groups}
+  AUTH_QUALITY_GROUPS: ${AUTH_QUALITY_GROUPS:?Map actual IdP quality groups}
+  AUTH_PM_GROUPS: ${AUTH_PM_GROUPS:?Map actual IdP PM groups}
+  AUTH_ENGINEERING_GROUPS: ${AUTH_ENGINEERING_GROUPS:?Map actual IdP engineering groups}
+  AUTH_VIEWER_GROUPS: ${AUTH_VIEWER_GROUPS:?Map actual IdP read-only groups}
+  DCP_GATE_POLICY: ${DCP_GATE_POLICY:?Select approved DCP policy}
+  BOM_POLICY_VERSION: ${BOM_POLICY_VERSION:?Set approved engineering policy version}
+  IMPORT_DEDUPE_POLICY: ${IMPORT_DEDUPE_POLICY:?Select approved import deduplication policy}
+
 services:
+  preflight:
+    build: .
+    image: ai-pingtai-workbench:local
+    restart: "no"
+    environment: *production-validation-environment
+    command: ["bash", "/app/scripts/validate_production_env.sh"]
+
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -55,6 +81,9 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
     networks: [backend]
 
   migrate:
@@ -139,6 +168,9 @@ services:
       OAUTH2_PROXY_PASS_ACCESS_TOKEN: "false"
       OAUTH2_PROXY_OIDC_GROUPS_CLAIM: groups
       OAUTH2_PROXY_SCOPE: "openid profile email groups"
+    depends_on:
+      preflight:
+        condition: service_completed_successfully
     expose:
       - "4180"
     networks: [edge]
