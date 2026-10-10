@@ -7,6 +7,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
+from ..config import DCP_GATE_POLICY
 from ..db import get_db
 from ..models import PMProject, PMProjectMilestone, PMProjectRisk
 
@@ -142,13 +143,11 @@ def _risk_dict(item: PMProjectRisk) -> dict:
             "created_at": item.created_at.strftime("%Y-%m-%d %H:%M")}
 
 
-def _project_dict(db: Session, item: PMProject) -> dict:
-    milestones = db.query(PMProjectMilestone).filter(
-        PMProjectMilestone.project_id == item.id
-    ).order_by(PMProjectMilestone.planned_date.asc(), PMProjectMilestone.id.asc()).all()
-    risks = db.query(PMProjectRisk).filter(
-        PMProjectRisk.project_id == item.id
-    ).order_by(PMProjectRisk.id.desc()).all()
+def _project_dict_with_children(
+    item: PMProject,
+    milestones: list[PMProjectMilestone],
+    risks: list[PMProjectRisk],
+) -> dict:
     return {"id": item.id, "code": item.code, "name": item.name,
             "product_line": item.product_line, "owner": item.owner,
             "stage": item.stage, "status": item.status, "progress": item.progress,
@@ -158,6 +157,29 @@ def _project_dict(db: Session, item: PMProject) -> dict:
             "updated_at": item.updated_at.strftime("%Y-%m-%d %H:%M"),
             "milestones": [_milestone_dict(m) for m in milestones],
             "risks": [_risk_dict(r) for r in risks]}
+
+
+def _project_dict(db: Session, item: PMProject) -> dict:
+    milestones = db.query(PMProjectMilestone).filter(
+        PMProjectMilestone.project_id == item.id
+    ).order_by(PMProjectMilestone.planned_date.asc(), PMProjectMilestone.id.asc()).all()
+    risks = db.query(PMProjectRisk).filter(
+        PMProjectRisk.project_id == item.id
+    ).order_by(PMProjectRisk.id.desc()).all()
+    return _project_dict_with_children(item, milestones, risks)
+
+
+def _children_by_project(
+    milestones: list[PMProjectMilestone],
+    risks: list[PMProjectRisk],
+) -> tuple[dict[int, list[PMProjectMilestone]], dict[int, list[PMProjectRisk]]]:
+    milestone_map: dict[int, list[PMProjectMilestone]] = {}
+    risk_map: dict[int, list[PMProjectRisk]] = {}
+    for milestone in milestones:
+        milestone_map.setdefault(milestone.project_id, []).append(milestone)
+    for risk in risks:
+        risk_map.setdefault(risk.project_id, []).append(risk)
+    return milestone_map, risk_map
 
 
 def _get_project(db: Session, project_id: int) -> PMProject:
@@ -178,6 +200,7 @@ def project_summary(db: Session = Depends(get_db)):
     overdue_risks = [r for r in open_risks if r.due_date and r.due_date < today]
     future_date = (date.today() + timedelta(days=14)).isoformat()
     upcoming = [m for m in milestones if m.status == "pending" and today <= m.planned_date <= future_date]
+    milestone_map, risk_map = _children_by_project(milestones, risks)
     return {
         "source": "local_pilot",
         "stats": {"total_projects": len(items),
@@ -185,13 +208,20 @@ def project_summary(db: Session = Depends(get_db)):
                   "at_risk": sum(1 for p in items if p.status in ("at_risk", "blocked")),
                   "open_risks": len(open_risks), "overdue_risks": len(overdue_risks),
                   "upcoming_gates": len(upcoming)},
-        "projects": [_project_dict(db, item) for item in items],
+        "projects": [_project_dict_with_children(item, milestone_map.get(item.id, []), risk_map.get(item.id, [])) for item in items],
         "milestones": [_milestone_dict(m) for m in milestones],
         "risks": [_risk_dict(r) for r in risks]}
 
 
 @router.get("")
-def list_projects(q: str = "", stage: str = "", status_filter: str = "", db: Session = Depends(get_db)):
+def list_projects(
+    q: str = "",
+    stage: str = "",
+    status_filter: str = "",
+    page: int = 1,
+    page_size: int = 50,
+    db: Session = Depends(get_db),
+):
     query = db.query(PMProject)
     if q.strip():
         pattern = "%" + q.strip() + "%"
@@ -201,8 +231,12 @@ def list_projects(q: str = "", stage: str = "", status_filter: str = "", db: Ses
         query = query.filter(PMProject.stage == stage.strip())
     if status_filter.strip():
         query = query.filter(PMProject.status == status_filter.strip())
-    items = query.order_by(PMProject.updated_at.desc(), PMProject.id.desc()).all()
-    return {"items": [_project_dict(db, item) for item in items], "total": len(items), "source": "local_pilot"}
+    total = query.count()
+    page = max(1, page)
+    page_size = min(max(1, page_size), 200)
+    items = query.order_by(PMProject.updated_at.desc(), PMProject.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return {"items": [_project_dict(db, item) for item in items], "total": total,
+            "page": page, "page_size": page_size, "source": "local_pilot"}
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -244,6 +278,12 @@ def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depend
 @router.post("/{project_id}/milestones", status_code=status.HTTP_201_CREATED)
 def create_milestone(project_id: int, payload: MilestoneCreate, db: Session = Depends(get_db)):
     _get_project(db, project_id)
+    exists = db.query(PMProjectMilestone).filter(
+        PMProjectMilestone.project_id == project_id,
+        PMProjectMilestone.gate == payload.gate,
+    ).first()
+    if exists:
+        raise HTTPException(status_code=409, detail="同一项目的 DCP 节点不能重复登记")
     item = PMProjectMilestone(project_id=project_id, **payload.model_dump())
     db.add(item)
     db.commit()
@@ -256,7 +296,32 @@ def update_milestone(milestone_id: int, payload: MilestoneUpdate, db: Session = 
     item = db.get(PMProjectMilestone, milestone_id)
     if item is None:
         raise HTTPException(status_code=404, detail="DCP 里程碑不存在")
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    next_gate = data.get("gate", item.gate)
+    duplicate = db.query(PMProjectMilestone).filter(
+        PMProjectMilestone.project_id == item.project_id,
+        PMProjectMilestone.gate == next_gate,
+        PMProjectMilestone.id != item.id,
+    ).first()
+    if duplicate:
+        raise HTTPException(status_code=409, detail="同一项目的 DCP 节点不能重复登记")
+    next_status = data.get("status", item.status)
+    if next_status == "passed" and DCP_GATE_POLICY == "sequential":
+        ordered_gates = ["DCP0", "DCP1", "DCP2", "DCP3", "DCP4", "DCP5"]
+        gate_index = ordered_gates.index(next_gate)
+        if gate_index:
+            prerequisites = db.query(PMProjectMilestone).filter(
+                PMProjectMilestone.project_id == item.project_id,
+                PMProjectMilestone.gate.in_(ordered_gates[:gate_index]),
+            ).all()
+            passed_gates = {gate.gate for gate in prerequisites if gate.status == "passed"}
+            missing_or_open = [gate for gate in ordered_gates[:gate_index] if gate not in passed_gates]
+            if missing_or_open:
+                raise HTTPException(
+                    status_code=409,
+                    detail="按当前 DCP 顺序规则，必须先完成前置节点：" + "、".join(missing_or_open),
+                )
+    for key, value in data.items():
         setattr(item, key, value)
     if item.status == "passed" and not item.actual_date:
         item.actual_date = date.today().isoformat()
