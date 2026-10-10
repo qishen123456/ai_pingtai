@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session
 
@@ -38,7 +39,7 @@ def readiness():
         return {"status": "ready", "database": "connected", "environment": APP_ENV}
     except Exception:
         # Do not leak database host, credentials, SQL, or schema details from a public probe.
-        return {"status": "not_ready", "database": "unavailable"}
+        return JSONResponse(status_code=503, content={"status": "not_ready", "database": "unavailable"})
 
 
 @router.get("/api/system/session")
