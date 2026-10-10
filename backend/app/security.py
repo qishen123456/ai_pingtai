@@ -101,6 +101,9 @@ def authorize_request(method: str, path: str, roles: set[str]) -> bool:
 
     if path.startswith("/api/system/audit"):
         return "admin" in roles
+    # The assistant query endpoint is read-only even though it uses POST for structured filters.
+    elif path.startswith("/api/assistant"):
+        allowed = KNOWN_ROLES
     if path.startswith("/api/system/") or path.startswith("/api/dashboard") or path == "/api/health":
         allowed = KNOWN_ROLES if is_read else {"admin"}
     elif path.startswith("/api/imports"):
