@@ -9,6 +9,7 @@ SELECT format('CREATE ROLE workbench_backup LOGIN PASSWORD %L', :'backup_passwor
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'workbench_backup')
 \gexec
 
+ALTER ROLE workbench_backup WITH LOGIN PASSWORD :'backup_password';
 GRANT CONNECT ON DATABASE workbench TO workbench_backup;
 GRANT USAGE ON SCHEMA public TO workbench_backup;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO workbench_backup;
