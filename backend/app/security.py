@@ -112,14 +112,16 @@ def authorize_request(method: str, path: str, roles: set[str]) -> bool:
 
     if path.startswith("/api/system/audit"):
         return "admin" in roles
-    if path.startswith("/api/imports"):
+    if path.startswith("/api/system/") or path.startswith("/api/dashboard") or path == "/api/health":
+        allowed = KNOWN_ROLES if is_read else {"admin"}
+    elif path.startswith("/api/imports"):
         allowed = {"viewer", "quality", "admin"} if is_read else {"quality", "admin"}
     elif path.startswith("/api/projects"):
         allowed = {"viewer", "pm", "admin"} if is_read else {"pm", "admin"}
     elif path.startswith("/api/standardization"):
         allowed = {"viewer", "engineering", "admin"} if is_read else {"engineering", "admin"}
     elif path.startswith("/api/apps"):
-        allowed = {"viewer", "admin"} if is_read else {"admin"}
+        allowed = KNOWN_ROLES if is_read else {"admin"}
     else:
-        allowed = {"viewer", "admin"} if is_read else {"admin"}
+        allowed = KNOWN_ROLES if is_read else {"admin"}
     return bool(roles.intersection(allowed))
