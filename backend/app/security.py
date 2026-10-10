@@ -36,6 +36,8 @@ def validate_production_configuration() -> None:
         errors.append("AUTH_PROXY_TRUSTED=true is required only behind a private trusted gateway")
     if config.DATABASE_URL.startswith("sqlite"):
         errors.append("DATABASE_URL must point to PostgreSQL in production")
+    if any(token in config.DATABASE_URL.upper() for token in ("__SET_ME__", "PLACEHOLDER", "CHANGE_ME")):
+        errors.append("DATABASE_URL contains a placeholder credential")
     for role, groups in ROLE_GROUPS.items():
         parsed = _csv(groups)
         if not parsed or any("placeholder" in g or "set-me" in g or "__" in g for g in parsed):
