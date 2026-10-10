@@ -143,7 +143,10 @@ def _extract_model(question: str, context: dict[str, str], known_models: list[st
     for pattern in patterns:
         match = re.search(pattern, question, flags=re.IGNORECASE)
         if match:
-            return match.group(1).strip()
+            candidate = match.group(1).strip()
+            # Bare technical acronyms such as DCP/BOM/QMS are not product model identifiers.
+            if any(char.isdigit() for char in candidate) or "推广名" in question:
+                return candidate
     return ""
 
 
