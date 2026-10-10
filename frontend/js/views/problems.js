@@ -66,11 +66,11 @@ window.Views.problems = (function () {
     el.innerHTML =
       '<section class="experience-shell">' +
       '<div class="experience-masthead"><div><span class="module-kicker">QUALITY EXPERIENCE · PILOT</span><h2>问题经验工作台</h2><p>从 Excel 智能导入到问题台账，以规则校验确保每一条记录可追溯。</p></div><div class="experience-mark">' + UI.icon("problems") + '<span>规则驱动<br><b>可审计</b></span></div></div>' +
-      '<div class="experience-tabs" id="pTabs">' +
-      '<div class="tab" data-tab="overview">问题管理概览</div>' +
-      '<div class="tab" data-tab="import">Excel 智能导入</div>' +
-      '<div class="tab" data-tab="records">问题台账</div>' +
-      '<div class="tab" data-tab="history">导入历史批次</div></div>' +
+      '<div class="experience-tabs" id="pTabs" role="tablist" aria-label="问题经验视图">' +
+      '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="overview">问题管理概览</button>' +
+      '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="import">Excel 智能导入</button>' +
+      '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="records">问题台账</button>' +
+      '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="history">导入历史批次</button></div>' +
       '<div id="pBody"></div></section>';
 
     el.querySelectorAll("#pTabs .tab").forEach((tab) => {
@@ -85,8 +85,11 @@ window.Views.problems = (function () {
 
   function switchTab(tab) {
     state.tab = tab;
-    document.querySelectorAll("#pTabs .tab").forEach((t) =>
-      t.classList.toggle("active", t.dataset.tab === tab));
+    document.querySelectorAll("#pTabs .tab").forEach((t) => {
+      const selected = t.dataset.tab === tab;
+      t.classList.toggle("active", selected);
+      t.setAttribute("aria-selected", String(selected));
+    });
     const body = document.querySelector("#pBody");
     if (!body) return;
     
