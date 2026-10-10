@@ -2,6 +2,7 @@
 (async function () {
   const WORKSPACE_NAVS = [
     { key: "dashboard", icon: "dashboard", label: "工作台首页" },
+    { key: "assistant", icon: "message-square", label: "统一 AI 问答" },
     { key: "app_center", icon: "grid", label: "AI 应用中心" },
     { key: "todos", icon: "todos", label: "我的待办" },
   ];
