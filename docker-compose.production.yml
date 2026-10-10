@@ -15,6 +15,9 @@ x-workbench-environment: &workbench-environment
   AUTH_PM_GROUPS: ${AUTH_PM_GROUPS:?Map actual IdP PM groups}
   AUTH_ENGINEERING_GROUPS: ${AUTH_ENGINEERING_GROUPS:?Map actual IdP engineering groups}
   AUTH_VIEWER_GROUPS: ${AUTH_VIEWER_GROUPS:?Map actual IdP read-only groups}
+  DCP_GATE_POLICY: ${DCP_GATE_POLICY:?Select approved DCP policy}
+  BOM_POLICY_VERSION: ${BOM_POLICY_VERSION:?Set approved engineering policy version}
+  IMPORT_DEDUPE_POLICY: ${IMPORT_DEDUPE_POLICY:?Select approved import deduplication policy}
   MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
   MAX_PREVIEW_ROWS: ${MAX_PREVIEW_ROWS:-500}
   MAX_XLSX_SHEETS: ${MAX_XLSX_SHEETS:-40}
