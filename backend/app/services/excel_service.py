@@ -101,12 +101,17 @@ def summarize_sheets(file_bytes: bytes, recognizer: Optional[HeaderRecognizer] =
                 1 for row in grid[header_idx + 1:]
                 if any(c is not None and str(c).strip() for c in row)
             )
+        truncated = bool(
+            header_idx is not None and sheet.get("max_row")
+            and sheet["max_row"] > header_idx + 1 + MAX_PREVIEW_ROWS
+        )
         result.append({
             "name": sheet["name"],
             "header_row": (header_idx + 1) if header_idx is not None else None,
             "matched_fields": sorted(matched),
             "matched_count": len(matched),
             "data_rows": data_rows,
+            "truncated": truncated,
             "score": len(matched) + (1 if "description" in matched else 0),
         })
     if result:
@@ -179,10 +184,11 @@ def build_preview(
 ) -> Dict[str, Any]:
     """解析指定工作表，返回列映射 + 行预览（含归一值与问题标记）。"""
     recognizer = recognizer or get_recognizer()
-    sheets = {s["name"]: s["grid"] for s in _read_grids(file_bytes)}
+    sheets = {s["name"]: s for s in _read_grids(file_bytes)}
     if sheet_name not in sheets:
         raise ExcelParseError("工作表不存在：%s" % sheet_name)
-    grid = sheets[sheet_name]
+    sheet_info = sheets[sheet_name]
+    grid = sheet_info["grid"]
 
     header_idx = detect_header_row(grid)
     if header_idx is None:
@@ -210,9 +216,19 @@ def build_preview(
     error_rows = sum(1 for r in rows if any(i["level"] == "error" for i in r["issues"]))
     pending_cols = [c["index"] for c in columns if c["level"] == "medium"]
     unmapped_cols = [c["index"] for c in columns if not c["field"] and c["raw_header"].strip()]
+    truncated = bool(
+        sheet_info.get("max_row")
+        and sheet_info["max_row"] > header_idx + 1 + MAX_PREVIEW_ROWS
+    )
     return {
         "sheet_name": sheet_name,
         "header_row": header_idx + 1,
+        "truncated": truncated,
+        "preview_row_limit": MAX_PREVIEW_ROWS,
+        "truncation_warning": (
+            "工作表可能超过预览上限；为避免部分数据被静默导入，本批次禁止确认。请拆分文件后重新上传。"
+            if truncated else ""
+        ),
         "columns": columns,
         "field_labels": FIELD_LABELS,
         "data_fields": DATA_FIELDS,
