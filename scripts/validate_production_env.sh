@@ -5,8 +5,9 @@ fail() { echo "[preflight] ERROR: $*" >&2; exit 2; }
 required() {
   local name="$1"
   [[ -n "${!name:-}" ]] || fail "$name is required"
-  local value_upper="${!name^^}"
-  for marker in "__SET_ME__" "PLACEHOLDER" "CHANGE_ME" "EXAMPLE.INVALID" "SET_URL_SAFE_RANDOM" "SET_APPROVED_TAG" "UNCONFIGURED"; do
+  local value="${!name:-}"
+  local value_upper="${value^^}"
+  for marker in "__SET_ME__" "PLACEHOLDER" "CHANGE_ME" "EXAMPLE.INVALID" "SET_URL_SAFE_RANDOM" "SET_APPROVED_TAG" "UNCONFIGURED" "NOT-A-REAL" "CI-CLIENT"; do
     [[ "$value_upper" != *"$marker"* ]] || fail "$name still contains a placeholder value"
   done
 }
