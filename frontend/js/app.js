@@ -83,6 +83,18 @@
 
     renderNavGroup("navWorkspace", WORKSPACE_NAVS);
     renderNavGroup("navPlatform", PLATFORM_NAVS);
+
+    // Display the server-authenticated principal; never infer or hard-code an employee identity.
+    try {
+      const session = await api.get("/api/system/session");
+      const nameEl = document.getElementById("currentUserName");
+      const avatarEl = document.getElementById("currentUserAvatar");
+      if (nameEl) nameEl.textContent = session.actor || "已认证用户";
+      if (avatarEl) avatarEl.textContent = String(session.actor || "?").trim().slice(0, 1).toUpperCase() || "?";
+    } catch (error) {
+      const nameEl = document.getElementById("currentUserName");
+      if (nameEl) nameEl.textContent = "未获取到登录账号";
+    }
     
     try {
       const res = await api.get("/api/apps");
