@@ -80,3 +80,24 @@ def test_production_guard_requires_business_owned_policy(monkeypatch):
         assert "BOM_POLICY_VERSION" in str(exc)
     else:
         raise AssertionError("Production must fail closed until business rules are approved")
+
+
+
+def test_production_guard_accepts_valid_app_side_configuration(monkeypatch):
+    monkeypatch.setattr(security.config, "APP_ENV", "production")
+    monkeypatch.setattr(security.config, "AUTH_MODE", "proxy")
+    monkeypatch.setattr(security.config, "AUTH_PROXY_TRUSTED", True)
+    monkeypatch.setattr(security.config, "DATABASE_URL", "postgresql+psycopg://workbench:SafeUrlPassword_2026@db:5432/workbench")
+    monkeypatch.setattr(security.config, "AUTH_USER_HEADER", "X-Auth-Request-User")
+    monkeypatch.setattr(security.config, "AUTH_GROUPS_HEADER", "X-Auth-Request-Groups")
+    monkeypatch.setattr(security.config, "RECOGNIZER_ENGINE", "rule")
+    monkeypatch.setattr(security.config, "DCP_GATE_POLICY", "sequential")
+    monkeypatch.setattr(security.config, "BOM_POLICY_VERSION", "engineering-policy-2026Q4")
+    monkeypatch.setattr(security.config, "IMPORT_DEDUPE_POLICY", "content")
+    monkeypatch.setattr(security, "ROLE_GROUPS", {
+        "admin": "workbench-admins", "quality": "quality-team", "pm": "project-managers",
+        "engineering": "engineering-team", "viewer": "read-only",
+    })
+
+    # OIDC client credentials intentionally live only in oauth2-proxy, not in the app container.
+    security.validate_production_configuration()
