@@ -32,8 +32,8 @@ jobs:
           AUTH_VIEWER_GROUPS=ci-viewers
           OAUTH2_PROXY_IMAGE=quay.io/oauth2-proxy/oauth2-proxy:v7.8.1
           OIDC_ISSUER_URL=https://idp.ci.example.com
-          OIDC_CLIENT_ID=ci-client
-          OIDC_CLIENT_SECRET=ci-not-a-real-secret
+          OIDC_CLIENT_ID=CiSyntheticClient_2026
+          OIDC_CLIENT_SECRET=CiSyntheticSecret_2026
           OAUTH2_PROXY_COOKIE_SECRET=01234567890123456789012345678901
           OIDC_EMAIL_DOMAINS=ci.example.com
           SERVER_NAME=workbench.ci.example.com
