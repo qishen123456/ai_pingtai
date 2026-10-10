@@ -24,7 +24,7 @@ window.Views.app_center = (function () {
     renderAppList(el);
   }
 
-  function renderAppList(el) {
+  function renderAppList(el, gridOnly = false) {
     const apps = state.apps.filter(a => {
       if (state.filterStatus !== 'all' && a.status !== state.filterStatus) return false;
       if (state.searchKw) {
@@ -58,6 +58,13 @@ window.Views.app_center = (function () {
       '</div>';
     }).join("") : '<div class="empty" style="grid-column: 1 / -1;"><div class="empty-ico">🔍</div>未检索到符合条件的应用</div>';
 
+    if (gridOnly) {
+      const grid = el.querySelector("#registryGrid");
+      if (grid) grid.innerHTML = appsHtml;
+      bindAppActions(el);
+      return;
+    }
+
     el.innerHTML = 
       '<div class="registry-hero">' +
         '<div class="registry-orbit registry-orbit-a"></div><div class="registry-orbit registry-orbit-b"></div>' +
@@ -78,34 +85,35 @@ window.Views.app_center = (function () {
           '</div>' +
         '</div>' +
       '</div>' +
-      '<div class="registry-grid">' + appsHtml + '</div>';
+      '<div class="registry-grid" id="registryGrid">' + appsHtml + '</div>';
 
     // 绑定事件
     el.querySelector('#newAppBtn').addEventListener('click', () => showNewAppWizard(el));
     
     el.querySelector('#searchApp').addEventListener('input', (e) => {
       state.searchKw = e.target.value.trim();
-      const caret = e.target.selectionStart;
       if (window.searchTid) clearTimeout(window.searchTid);
-      window.searchTid = setTimeout(() => {
-        renderAppList(el);
-        const nextInput = el.querySelector('#searchApp');
-        if (nextInput) {
-          nextInput.focus();
-          const position = Math.min(caret ?? nextInput.value.length, nextInput.value.length);
-          nextInput.setSelectionRange(position, position);
-        }
-      }, 220);
+      // Update only the result grid; keep focus and IME composition stable while typing Chinese.
+      window.searchTid = setTimeout(() => renderAppList(el, true), 140);
     });
 
     el.querySelectorAll('#statusFilter .tab').forEach(t => {
       t.addEventListener('click', () => {
         state.filterStatus = t.dataset.status;
-        renderAppList(el);
+        el.querySelectorAll('#statusFilter .tab').forEach(tab => {
+          const selected = tab.dataset.status === state.filterStatus;
+          tab.classList.toggle('active', selected);
+          tab.setAttribute('aria-selected', String(selected));
+        });
+        renderAppList(el, true);
       });
     });
 
-    el.querySelectorAll('.open-app-btn').forEach(b => {
+    bindAppActions(el);
+  }
+
+  function bindAppActions(el) {
+    el.querySelectorAll('#registryGrid .open-app-btn').forEach(b => {
       b.addEventListener('click', () => {
         if (b.dataset.url) window.open(b.dataset.url, '_blank', 'noopener');
         else if (['problems', 'projects', 'standardization'].includes(b.dataset.route)) Router.go(b.dataset.route);
