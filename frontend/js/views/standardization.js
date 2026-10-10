@@ -11,8 +11,8 @@ window.Views.standardization = (function () {
     el.innerHTML = '<section class="std-shell"><div class="std-hero"><div><span class="module-kicker">PARTS INTELLIGENCE · LOCAL PILOT</span>' +
       '<h2>标准化与优选件工作台</h2><p>维护可追溯的本地物料目录，以确定性规则检索相似件、逐项校验 BOM 并提供候选优选件。</p></div>' +
       '<div class="std-hero-side"><span class="local-source-badge">本地规则试点</span><small>PLM 未接入 · 不作为量产放行结论</small></div></div>' +
-      '<div class="std-tabs" id="stdTabs"><button class="tab active" data-tab="catalog">物料目录</button><button class="tab" data-tab="similar">相似件检索</button>' +
-      '<button class="tab" data-tab="bom">BOM 合规校验</button><button class="tab" data-tab="history">校验历史</button></div>' +
+      '<div class="std-tabs" id="stdTabs" role="tablist" aria-label="标准化工作区视图"><button type="button" role="tab" aria-selected="true" class="tab active" data-tab="catalog">物料目录</button><button type="button" role="tab" aria-selected="false" class="tab" data-tab="similar">相似件检索</button>' +
+      '<button type="button" role="tab" aria-selected="false" class="tab" data-tab="bom">BOM 合规校验</button><button type="button" role="tab" aria-selected="false" class="tab" data-tab="history">校验历史</button></div>' +
       '<div id="stdPanel"><div class="empty">正在加载物料目录…</div></div></section>';
     el.querySelectorAll("#stdTabs [data-tab]").forEach(function (tab) {
       tab.addEventListener("click", function () { state.tab = tab.dataset.tab; renderActive(); });
@@ -33,7 +33,9 @@ window.Views.standardization = (function () {
 
   function renderActive() {
     state.el.querySelectorAll("#stdTabs [data-tab]").forEach(function (tab) {
-      tab.classList.toggle("active", tab.dataset.tab === state.tab);
+      const selected = tab.dataset.tab === state.tab;
+      tab.classList.toggle("active", selected);
+      tab.setAttribute("aria-selected", String(selected));
     });
     if (state.tab === "catalog") renderCatalog();
     else if (state.tab === "similar") renderSimilar();
