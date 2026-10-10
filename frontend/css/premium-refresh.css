@@ -512,3 +512,35 @@ a:hover { color: #244eaf; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Dialog polish and explicit disabled/focus states. */
+.nav-item:disabled, .nav-item.is-disabled { opacity: .5; cursor: not-allowed; }
+.nav-item:disabled:hover, .nav-item.is-disabled:hover { color: #a8b4c7; background: transparent; }
+.registry-tabs .tab {
+  appearance: none; border: 0; margin: 0; cursor: pointer; font-family: inherit;
+  transition: color .15s ease, background .15s ease;
+}
+.registry-tabs .tab:focus-visible { outline: 2px solid #8da9ef; outline-offset: 1px; }
+.app-create-modal { width: min(620px, 92vw); }
+.app-create-head {
+  display: block; padding: 23px 25px 18px; background: linear-gradient(110deg,#fff,#f7f9fd);
+}
+.app-create-head .registry-kicker { display: block; margin-bottom: 7px; }
+.app-create-head h2 { color: #1a2940; font-size: 20px; line-height: 1.35; letter-spacing: -.035em; }
+.app-create-head p { margin-top: 5px; color: #78869a; font-size: 11px; font-weight: 400; line-height: 1.6; }
+.app-create-note {
+  display: flex; flex-direction: column; gap: 4px;
+  margin: 0 0 21px; padding: 13px 15px;
+  border: 1px solid #e1e8f3; border-radius: 9px; background: #f8faff;
+}
+.app-create-note strong { color: #344964; font-size: 11px; font-weight: 700; }
+.app-create-note p { color: #78869a; font-size: 11px; line-height: 1.6; }
+.app-create-modal .form-label { display: flex; align-items: center; gap: 4px; }
+.app-create-modal .form-group:last-child { margin-bottom: 0; }
+.app-create-modal .modal-foot { gap: 9px; }
+@media (max-width: 520px) {
+  .app-create-head { padding: 20px 18px 16px; }
+  .app-create-modal .modal-body { padding: 18px; }
+  .app-create-note { padding: 12px; }
+}
