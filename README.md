@@ -12,7 +12,7 @@
 
 ## 一、如何启动
 
-环境要求：macOS / Linux，Python 3.9+（本地试点使用 SQLite，无需另装数据库）。
+环境要求：macOS / Linux，Python 3.11+（本地试点使用 SQLite，无需另装数据库）。
 
 **方式一：一键脚本**
 
