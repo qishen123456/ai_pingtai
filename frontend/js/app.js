@@ -41,9 +41,9 @@
     el.innerHTML = items.map((n) => {
       const iconSvg = isApp ? getAppIcon(n.icon) : UI.icon(n.icon);
       if (n.status === "draft" && !isApp) {
-        return '<div class="nav-item" style="opacity:0.5; cursor:not-allowed;" title="功能预留中">' +
-          '<span class="nav-ico">' + iconSvg + '</span><span>' + (n.label || n.name) + '</span>' +
-          '<span class="sys-badge draft">' + (n.tag || '草稿') + '</span></div>';
+        return '<button type="button" class="nav-item is-disabled" disabled title="功能预留中" aria-disabled="true">' +
+          '<span class="nav-ico">' + iconSvg + '</span><span>' + UI.esc(n.label || n.name) + '</span>' +
+          '<span class="sys-badge draft">' + UI.esc(n.tag || '草稿') + '</span></button>';
       }
       
       const tagHtml = n.status === "active" ? '<span class="sys-badge active">' + (n.entry_url || ['problems', 'projects', 'standardization'].includes(n.route_path) ? '可用' : '待配置') + '</span>' : 
@@ -53,8 +53,8 @@
       const label = isApp ? n.name : n.label;
       const key = isApp ? n.route_path : n.key;
 
-      return '<div class="nav-item" data-key="' + key + '">' +
-        '<span class="nav-ico">' + iconSvg + '</span><span>' + label + '</span>' + tagHtml + '</div>';
+      return '<button type="button" class="nav-item" data-key="' + UI.esc(key) + '">' +
+        '<span class="nav-ico">' + iconSvg + '</span><span>' + UI.esc(label || "") + '</span>' + tagHtml + '</button>';
     }).join("");
 
     el.querySelectorAll(".nav-item[data-key]").forEach((item) => {
@@ -92,10 +92,21 @@
       if (nameEl) nameEl.textContent = session.actor || "已认证用户";
       if (avatarEl) avatarEl.textContent = String(session.actor || "?").trim().slice(0, 1).toUpperCase() || "?";
       const envEl = document.getElementById("envBadge");
-      if (envEl) envEl.textContent = session.production ? "生产环境" : "开发/测试环境";
+      const runtimeEl = document.getElementById("runtimeBadge");
+      if (envEl) envEl.textContent = session.production ? "生产环境" : "开发 / 试点环境";
+      if (runtimeEl) {
+        runtimeEl.textContent = session.production ? "生产环境 · 已认证" : "开发 / 试点环境";
+        runtimeEl.classList.toggle("is-production", !!session.production);
+        runtimeEl.classList.toggle("is-development", !session.production);
+      }
     } catch (error) {
       const nameEl = document.getElementById("currentUserName");
-      if (nameEl) nameEl.textContent = "未获取到登录账号";
+      const runtimeEl = document.getElementById("runtimeBadge");
+      if (nameEl) nameEl.textContent = "当前会话不可用";
+      if (runtimeEl) {
+        runtimeEl.textContent = "认证状态不可用";
+        runtimeEl.classList.remove("is-production", "is-development");
+      }
     }
     
     try {
