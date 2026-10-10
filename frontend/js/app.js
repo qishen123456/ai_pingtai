@@ -91,6 +91,8 @@
       const avatarEl = document.getElementById("currentUserAvatar");
       if (nameEl) nameEl.textContent = session.actor || "已认证用户";
       if (avatarEl) avatarEl.textContent = String(session.actor || "?").trim().slice(0, 1).toUpperCase() || "?";
+      const envEl = document.getElementById("envBadge");
+      if (envEl) envEl.textContent = session.production ? "生产环境" : "开发/测试环境";
     } catch (error) {
       const nameEl = document.getElementById("currentUserName");
       if (nameEl) nameEl.textContent = "未获取到登录账号";
