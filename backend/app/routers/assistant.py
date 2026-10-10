@@ -174,11 +174,15 @@ def _extract_time_floor(question: str) -> Optional[datetime]:
 
 
 def _filter_words(question: str) -> list[str]:
-    tokens = re.findall(r"[\u4e00-\u9fff]{2,}|[A-Za-z0-9][A-Za-z0-9._-]{1,}", question)
-    ignored = ("帮我", "查询", "查看", "一下", "这个", "那个", "最近", "当前",
-               "机型", "编号", "产品型号", "推广名", "质量", "问题", "整改",
-               "情况", "状态", "进度", "有哪些", "怎么", "汇总", "所有", "全部", "数据", "记录")
-    return [token for token in tokens if not any(word in token for word in ignored)][:8]
+    cleaned = question
+    ignored = ("请帮我", "帮我", "查询一下", "查询", "查看一下", "查看", "最近", "当前",
+               "这个机型", "机型编号", "产品型号", "推广名", "机型", "型号", "问题经验",
+               "问题记录", "历史问题", "问题", "整改", "状态", "进度", "情况", "有哪些",
+               "全部", "所有", "汇总", "记录", "数据", "信息", "一下", "和", "与", "的", "吗", "呢")
+    for word in sorted(ignored, key=len, reverse=True):
+        cleaned = cleaned.replace(word, " ")
+    tokens = re.findall(r"[\u4e00-\u9fff]{2,}|[A-Za-z0-9][A-Za-z0-9._-]{1,}", cleaned)
+    return list(dict.fromkeys(tokens))[:8]
 
 def _problem_item(row: ProblemRecord) -> dict:
     status_hint = "整改信息待补充"
