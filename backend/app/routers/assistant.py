@@ -418,8 +418,18 @@ def query_assistant(payload: AssistantQuery, db: Session = Depends(get_db)):
         project_match = next((row for row in sorted(known_projects, key=lambda item: len(item[0] or ""), reverse=True)
                               if any(value and _normalize(value) in _normalize(question) for value in row)), None)
         if project_match:
-            pattern = "%" + (project_match[1] or project_match[0]) + "%"
-            project_query = project_query.filter(or_(PMProject.code.ilike(pattern), PMProject.name.ilike(pattern)))
+            matched_value = next((value for value in project_match if value and _normalize(value) in _normalize(question)), project_match[1] or project_match[0])
+            pattern = "%" + matched_value + "%"
+            project_query = project_query.filter(or_(
+                PMProject.code.ilike(pattern), PMProject.name.ilike(pattern),
+                PMProject.product_line.ilike(pattern), PMProject.description.ilike(pattern),
+            ))
+        elif model_filter:
+            pattern = "%" + model_filter + "%"
+            project_query = project_query.filter(or_(
+                PMProject.code.ilike(pattern), PMProject.name.ilike(pattern),
+                PMProject.product_line.ilike(pattern), PMProject.description.ilike(pattern),
+            ))
         else:
             code_match = next((code for code in known_project_codes if _normalize(code) in _normalize(question)), "")
             if code_match:
