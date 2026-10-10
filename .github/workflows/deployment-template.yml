@@ -42,3 +42,5 @@ jobs:
         run: docker compose --env-file /tmp/workbench-compose.env -f docker-compose.production.yml config --quiet
       - name: Check backup script syntax
         run: bash -n scripts/backup_database.sh
+      - name: Check PostgreSQL role bootstrap syntax
+        run: bash -n deploy/postgres-init/01-backup-role.sh
